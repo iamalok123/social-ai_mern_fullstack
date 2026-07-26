@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MailIcon, LockIcon, ArrowRightIcon, User2Icon } from "lucide-react";
+import { toast } from "sonner";
 
 export default function Login() {
     const [loginState, setLoginState] = useState(true);
@@ -8,6 +9,7 @@ export default function Login() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
+    const [googleLoading, setGoogleLoading] = useState(false);
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -15,47 +17,82 @@ export default function Login() {
         setLoading(true);
         setTimeout(() => {
             setLoading(false);
+            toast.success(loginState ? "Logged in successfully!" : "Account created successfully!");
             navigate("/dashboard");
         }, 1000);
     };
 
+    const handleGoogleSignIn = () => {
+        setGoogleLoading(true);
+        toast.info("Connecting to Google Authentication...");
+        setTimeout(() => {
+            setGoogleLoading(false);
+            toast.success("Signed in with Google successfully!");
+            navigate("/dashboard");
+        }, 1200);
+    };
+
     return (
-        <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-slate-100 dark:bg-black text-slate-900 dark:text-slate-100 flex items-center justify-center p-4 transition-colors">
             <div className="relative w-full max-w-md">
-                <div className="bg-white rounded-2xl shadow-sm p-8">
+                <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-xl border border-slate-200 dark:border-zinc-800/80 p-8 transition-all">
                     <div className="flex flex-col items-center mb-8">
                         <Link to="/" className="flex items-center gap-2">
-                            <img src="/logo.svg" alt="Logo" className="size-6.5" />
-                            <h1 className="text-2xl">Scheduler</h1>
+                            <img src="/logo.svg" alt="Logo" className="size-7" />
+                            <h1 className="text-2xl font-serif text-slate-900 dark:text-white">Social AI</h1>
                         </Link>
-                        <p className="text-slate-500 text-sm mt-1">Sign in to your Dashboard</p>
+                        <p className="text-slate-500 dark:text-zinc-400 text-sm mt-1">
+                            {loginState ? "Sign in to your Dashboard" : "Create your Social AI account"}
+                        </p>
                     </div>
+
+                    {/* Google OAuth Button */}
+                    <button
+                        type="button"
+                        onClick={handleGoogleSignIn}
+                        disabled={googleLoading}
+                        className="w-full py-2.5 px-4 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 border border-slate-300 dark:border-zinc-700/80 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-full text-sm font-medium transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-xs disabled:opacity-60 mb-6"
+                    >
+                        <svg className="size-4.5" viewBox="0 0 24 24">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                        </svg>
+                        {googleLoading ? "Connecting to Google..." : "Continue with Google"}
+                    </button>
+
+                    <div className="relative flex items-center justify-center mb-6">
+                        <div className="border-t border-slate-200 dark:border-zinc-800 w-full" />
+                        <span className="bg-white dark:bg-zinc-950 px-3 text-xs text-slate-400 dark:text-zinc-500 uppercase tracking-wider absolute">or</span>
+                    </div>
+
                     <form onSubmit={handleSubmit} className="space-y-5 text-sm">
                         {!loginState && (
                             <div>
-                                <label className="block mb-1.5">Name</label>
+                                <label className="block mb-1.5 text-slate-700 dark:text-zinc-300">Name</label>
                                 <div className="relative">
-                                    <User2Icon className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                    <input type="text" required placeholder="Enter your name" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 outline-slate-300 border border-slate-200 rounded-full" value={name} onChange={(e) => setName(e.target.value)} />
+                                    <User2Icon className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+                                    <input type="text" required placeholder="Enter your name" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-900 text-slate-900 dark:text-white outline-orange-500 border border-slate-200 dark:border-zinc-800 rounded-full transition-all" value={name} onChange={(e) => setName(e.target.value)} />
                                 </div>
                             </div>
                         )}
                         <div>
-                            <label className="block mb-1.5">Email</label>
+                            <label className="block mb-1.5 text-slate-700 dark:text-zinc-300">Email</label>
                             <div className="relative">
-                                <MailIcon className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input type="email" required placeholder="you@company.com" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 outline-slate-300 border border-slate-200 rounded-full" value={email} onChange={(e) => setEmail(e.target.value)} />
+                                <MailIcon className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+                                <input type="email" required placeholder="you@company.com" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-900 text-slate-900 dark:text-white outline-orange-500 border border-slate-200 dark:border-zinc-800 rounded-full transition-all" value={email} onChange={(e) => setEmail(e.target.value)} />
                             </div>
                         </div>
                         <div>
-                            <label className="block mb-1.5">Password</label>
+                            <label className="block mb-1.5 text-slate-700 dark:text-zinc-300">Password</label>
                             <div className="relative">
-                                <LockIcon className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                <input type="password" required placeholder="********" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 outline-slate-300 border border-slate-200 rounded-full" value={password} onChange={(e) => setPassword(e.target.value)} />
+                                <LockIcon className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+                                <input type="password" required placeholder="********" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-900 text-slate-900 dark:text-white outline-orange-500 border border-slate-200 dark:border-zinc-800 rounded-full transition-all" value={password} onChange={(e) => setPassword(e.target.value)} />
                             </div>
                         </div>
 
-                        <button type="submit" disabled={loading} className="w-full py-2.5 px-4 bg-linear-to-r from-red-600 to-red-500 text-white rounded-full text-sm transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+                        <button type="submit" disabled={loading} className="w-full py-3 px-4 bg-linear-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white font-medium rounded-full text-sm transition-all shadow-md shadow-orange-500/20 disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer">
                             {loading ? (
                                 "Signing in..."
                             ) : (
@@ -66,18 +103,18 @@ export default function Login() {
                         </button>
                     </form>
 
-                    <div className="mt-6 text-center text-sm text-slate-500">
+                    <div className="mt-6 text-center text-sm text-slate-500 dark:text-zinc-400">
                         {loginState ? (
                             <>
                                 Don&apos;t have an account?{" "}
-                                <button onClick={() => setLoginState(false)} className="text-red-600 hover:text-red-700">
+                                <button onClick={() => setLoginState(false)} className="text-orange-600 dark:text-orange-400 hover:underline font-medium">
                                     Create one free
                                 </button>
                             </>
                         ) : (
                             <>
                                 Already have an account?{" "}
-                                <button onClick={() => setLoginState(true)} className="text-red-600 hover:text-red-700">
+                                <button onClick={() => setLoginState(true)} className="text-orange-600 dark:text-orange-400 hover:underline font-medium">
                                     Sign In
                                 </button>
                             </>
