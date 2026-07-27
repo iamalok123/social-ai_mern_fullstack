@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { MailIcon, LockIcon, ArrowRightIcon, User2Icon } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "../context/AuthContext";
 
 export default function Login() {
     const [loginState, setLoginState] = useState(true);
@@ -11,12 +12,17 @@ export default function Login() {
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const navigate = useNavigate();
+    const { login } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
         setTimeout(() => {
             setLoading(false);
+            login({
+                name: name || (email ? email.split("@")[0] : "User"),
+                email: email || "user@example.com",
+            });
             toast.success(loginState ? "Logged in successfully!" : "Account created successfully!");
             navigate("/dashboard");
         }, 1000);
@@ -27,6 +33,10 @@ export default function Login() {
         toast.info("Connecting to Google Authentication...");
         setTimeout(() => {
             setGoogleLoading(false);
+            login({
+                name: "Google User",
+                email: "user@gmail.com",
+            });
             toast.success("Signed in with Google successfully!");
             navigate("/dashboard");
         }, 1200);
