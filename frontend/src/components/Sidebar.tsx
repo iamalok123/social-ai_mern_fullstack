@@ -24,8 +24,14 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
             {/* Logo Header */}
             <div className="h-16 px-6 flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 shrink-0">
                 <div className="flex items-center gap-2.5">
-                    <img src="/logo.svg" alt="logo" className="size-7" />
-                    <span className="text-xl font-medium font-serif text-slate-900 dark:text-white tracking-tight">Social AI</span>
+                    <img
+                        src="/logo.svg"
+                        alt="logo"
+                        className="size-7"
+                    />
+                    <span className="text-xl font-medium font-serif text-slate-900 dark:text-white tracking-tight">
+                        Social AI
+                    </span>
                 </div>
                 <button
                     onClick={() => setIsOpen(false)}
