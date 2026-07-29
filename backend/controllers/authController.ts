@@ -21,6 +21,11 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
             return;
         }
 
+        if (password.length < 6) {
+            res.status(400).json({ message: "Password must be at least 6 characters." });
+            return;
+        }
+
         const userExists = await User.findOne({ email });
 
         if (userExists) {
@@ -77,6 +82,9 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
                 authProvider: user.authProvider || "email",
                 token: generateToken(user._id.toString())
             });
+        } else if (user && user.authProvider === "google" && !user.password) {
+            res.status(400).json({ message: "This account uses Google Sign-In. Please sign in with Google." });
+            return;
         } else {
             res.status(401).json({ message: "Invalid email or password." });
             return;
@@ -92,7 +100,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
 // POST /api/auth/google
 export const googleAuth = async (req: Request, res: Response): Promise<void> => {
     try {
-        const { name, email } = req.body;
+        const { name, email, picture } = req.body;
 
         if (!email) {
             res.status(400).json({ message: "Email is required for Google Authentication." });
@@ -105,14 +113,19 @@ export const googleAuth = async (req: Request, res: Response): Promise<void> => 
             user = await User.create({
                 name: name || email.split("@")[0] || "Google User",
                 email,
+                picture,
                 authProvider: "google"
             });
+        } else if (picture && user.picture !== picture) {
+            user.picture = picture;
+            await user.save();
         }
 
         res.status(200).json({
             _id: user._id,
             name: user.name,
             email: user.email,
+            picture: user.picture,
             authProvider: user.authProvider || "google",
             token: generateToken(user._id.toString())
         });

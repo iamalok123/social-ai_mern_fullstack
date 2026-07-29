@@ -36,29 +36,85 @@ export default function Login() {
         }
     };
 
-    useEffect(() => {
-        if(user){
-            navigate("/dashboard");
-        }
-    }, [user])
-
-
-    const handleGoogleSignIn = async () => {
+    const handleGoogleCredentialResponse = async (response: any) => {
         setGoogleLoading(true);
         try {
-            const { data } = await api.post(API_PATHS.AUTH.GOOGLE_LOGIN, {
-                name: "Google User",
-                email: "googleuser@gmail.com"
-            });
+            if (!response?.credential) {
+                throw new Error("No credential returned from Google.");
+            }
+
+            // Decode base64 JWT payload from Google ID Token
+            const base64Url = response.credential.split(".")[1];
+            const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+            const jsonPayload = decodeURIComponent(
+                atob(base64)
+                    .split("")
+                    .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+                    .join("")
+            );
+            const payload = JSON.parse(jsonPayload);
+
+            if (!payload?.email) {
+                throw new Error("Google account email not found.");
+            }
+
+            const name = payload.name || payload.given_name || payload.email.split("@")[0];
+            const email = payload.email;
+            const picture = payload.picture;
+
+            // Authenticate with backend
+            const { data } = await api.post(API_PATHS.AUTH.GOOGLE_LOGIN, { name, email, picture });
             login(data, data.token);
-            toast.success("Signed in with Google successfully!");
+            toast.success(`Signed in as ${email}!`);
             navigate("/dashboard");
-        } catch (error: any) {
-            toast.error(error.response?.data?.message || error?.message || "Google sign in failed");
+        } catch (err: any) {
+            toast.error(err.response?.data?.message || err?.message || "Google sign-in failed.");
         } finally {
             setGoogleLoading(false);
         }
     };
+
+    useEffect(() => {
+        if (user) {
+            navigate("/dashboard");
+            return;
+        }
+
+        const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "213541066225-omlh2pcajla6bl2siv8j31es8eciaphv.apps.googleusercontent.com";
+
+        const setupGoogleBtn = () => {
+            if ((window as any).google?.accounts?.id) {
+                (window as any).google.accounts.id.initialize({
+                    client_id: googleClientId,
+                    callback: handleGoogleCredentialResponse,
+                });
+
+                const btnContainer = document.getElementById("googleSignInBtn");
+                if (btnContainer) {
+                    btnContainer.innerHTML = "";
+                    (window as any).google.accounts.id.renderButton(btnContainer, {
+                        theme: document.documentElement.classList.contains("dark") ? "filled_black" : "outline",
+                        size: "large",
+                        width: "360",
+                        text: "continue_with",
+                        shape: "pill",
+                    });
+                }
+            }
+        };
+
+        if ((window as any).google?.accounts?.id) {
+            setupGoogleBtn();
+        } else {
+            const timer = setInterval(() => {
+                if ((window as any).google?.accounts?.id) {
+                    setupGoogleBtn();
+                    clearInterval(timer);
+                }
+            }, 300);
+            return () => clearInterval(timer);
+        }
+    }, [user]);
 
     return (
         <div className="min-h-screen bg-slate-100 dark:bg-black text-slate-900 dark:text-slate-100 flex items-center justify-center p-4 transition-colors">
@@ -74,21 +130,15 @@ export default function Login() {
                         </p>
                     </div>
 
-                    {/* Google OAuth Button */}
-                    <button
-                        type="button"
-                        onClick={handleGoogleSignIn}
-                        disabled={googleLoading}
-                        className="w-full py-2.5 px-4 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-200 border border-slate-300 dark:border-zinc-700/80 hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-full text-sm font-medium transition-all flex items-center justify-center gap-2.5 cursor-pointer shadow-xs disabled:opacity-60 mb-6"
-                    >
-                        <svg className="size-4.5" viewBox="0 0 24 24">
-                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                        </svg>
-                        {googleLoading ? "Connecting to Google..." : "Continue with Google"}
-                    </button>
+                    {/* Google OAuth Button Container */}
+                    <div className="flex flex-col items-center justify-center mb-6 min-h-11 relative">
+                        {googleLoading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-white/90 dark:bg-zinc-950/90 z-10 rounded-full">
+                                <span className="text-xs font-medium text-orange-600 dark:text-orange-400 animate-pulse">Signing in with Google...</span>
+                            </div>
+                        )}
+                        <div id="googleSignInBtn" className="w-full flex justify-center" />
+                    </div>
 
                     <div className="relative flex items-center justify-center mb-6">
                         <div className="border-t border-slate-200 dark:border-zinc-800 w-full" />
@@ -101,7 +151,7 @@ export default function Login() {
                                 <label className="block mb-1.5 text-slate-700 dark:text-zinc-300">Name</label>
                                 <div className="relative">
                                     <User2Icon className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
-                                    <input type="text" required placeholder="Enter your name" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-900 text-slate-900 dark:text-white outline-orange-500 border border-slate-200 dark:border-zinc-800 rounded-full transition-all" value={name} onChange={(e) => setName(e.target.value)} />
+                                    <input type="text" required disabled={loading || googleLoading} placeholder="Enter your name" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-900 text-slate-900 dark:text-white outline-orange-500 border border-slate-200 dark:border-zinc-800 rounded-full transition-all disabled:opacity-60 disabled:cursor-not-allowed" value={name} onChange={(e) => setName(e.target.value)} />
                                 </div>
                             </div>
                         )}
@@ -109,7 +159,7 @@ export default function Login() {
                             <label className="block mb-1.5 text-slate-700 dark:text-zinc-300">Email</label>
                             <div className="relative">
                                 <MailIcon className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
-                                <input type="email" required placeholder="you@company.com" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-900 text-slate-900 dark:text-white outline-orange-500 border border-slate-200 dark:border-zinc-800 rounded-full transition-all" value={email} onChange={(e) => setEmail(e.target.value)} />
+                                <input type="email" required disabled={loading || googleLoading} placeholder="you@company.com" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-900 text-slate-900 dark:text-white outline-orange-500 border border-slate-200 dark:border-zinc-800 rounded-full transition-all disabled:opacity-60 disabled:cursor-not-allowed" value={email} onChange={(e) => setEmail(e.target.value)} />
                             </div>
                         </div>
                         <div>
@@ -119,15 +169,18 @@ export default function Login() {
                                 <input 
                                     type={showPassword ? "text" : "password"} 
                                     required 
+                                    minLength={6}
+                                    disabled={loading || googleLoading}
                                     placeholder="••••••••" 
-                                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-zinc-900 text-slate-900 dark:text-white outline-orange-500 border border-slate-200 dark:border-zinc-800 rounded-full transition-all" 
+                                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-zinc-900 text-slate-900 dark:text-white outline-orange-500 border border-slate-200 dark:border-zinc-800 rounded-full transition-all disabled:opacity-60 disabled:cursor-not-allowed" 
                                     value={password} 
                                     onChange={(e) => setPassword(e.target.value)} 
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300 focus:outline-none transition-colors cursor-pointer"
+                                    disabled={loading || googleLoading}
+                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300 focus:outline-none transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                                     aria-label={showPassword ? "Hide password" : "Show password"}
                                 >
                                     {showPassword ? (
@@ -139,7 +192,7 @@ export default function Login() {
                             </div>
                         </div>
 
-                        <button type="submit" disabled={loading} className="w-full py-3 px-4 bg-linear-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white font-medium rounded-full text-sm transition-all shadow-md shadow-orange-500/20 disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer">
+                        <button type="submit" disabled={loading || googleLoading} className="w-full py-3 px-4 bg-linear-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white font-medium rounded-full text-sm transition-all shadow-md shadow-orange-500/20 disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer">
                             {loading ? (
                                 "Signing in..."
                             ) : (

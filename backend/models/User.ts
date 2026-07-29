@@ -18,6 +18,9 @@ const userSchema = new mongoose.Schema({
         enum: ["email", "google"],
         default: "email"
     },
+    picture: {
+        type: String
+    },
     zernioProfileId: {
         type: String
     }

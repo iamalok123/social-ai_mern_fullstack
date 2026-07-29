@@ -100,29 +100,29 @@ const AIComposer = () => {
 
 
     return (
-        <div className="max-w-3xl mx-auto space-y-10 pb-20 animate-in fade-in duration-700">
+        <div className="max-w-3xl mx-auto space-y-8 sm:space-y-10 pb-16 sm:pb-20 px-2 sm:px-0 animate-in fade-in duration-700">
             {/* Input Section */}
-            <div className="space-y-5 text-center mt-6">
-                <h1 className="text-3xl font-medium text-slate-900 dark:text-white tracking-tight">
+            <div className="space-y-4 sm:space-y-5 text-center mt-4 sm:mt-6">
+                <h1 className="text-2xl sm:text-3xl font-medium text-slate-900 dark:text-white tracking-tight">
                     What should we create today?
                 </h1>
 
-                <div className="relative group mt-6 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xs focus-within:border-red-400 dark:focus-within:border-red-500/50 transition">
+                <div className="relative group mt-4 sm:mt-6 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xs focus-within:border-red-400 dark:focus-within:border-red-500/50 transition">
                     <textarea
-                        className="w-full px-6 pt-5 pb-16 bg-transparent text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 outline-none transition resize-none h-36 text-sm leading-relaxed"
+                        className="w-full px-4 sm:px-6 pt-4 sm:pt-5 pb-20 sm:pb-16 bg-transparent text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 outline-none transition resize-none h-44 sm:h-36 text-sm leading-relaxed"
                         placeholder="Share your idea... (e.g. A post about the launch of our new eco-friendly coffee beans)"
                         value={prompt}
                         onChange={(e) => setPrompt(e.target.value)}
                     />
 
                     {/* Chat Bar Integrated Controls Toolbar */}
-                    <div className="absolute bottom-3.5 left-5 right-5 flex items-center justify-between">
+                    <div className="absolute bottom-3 left-3 right-3 sm:left-5 sm:right-5 flex items-center justify-between gap-2">
                         {/* Left Side: Custom Theme/Tone Dropdown */}
                         <div className="relative" ref={toneDropdownRef}>
                             <button
                                 type="button"
                                 onClick={() => setIsToneDropdownOpen(!isToneDropdownOpen)}
-                                className="flex items-center gap-2 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200 py-1.5 px-3 rounded-xl text-xs font-semibold cursor-pointer hover:bg-slate-200/70 dark:hover:bg-zinc-800/80 transition-all shadow-xs"
+                                className="flex items-center gap-1.5 sm:gap-2 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-800 dark:text-zinc-200 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-semibold cursor-pointer hover:bg-slate-200/70 dark:hover:bg-zinc-800/80 transition-all shadow-xs"
                             >
                                 <span>{tone}</span>
                                 <ChevronDownIcon className={`w-3.5 h-3.5 text-slate-400 dark:text-zinc-400 transition-transform duration-150 ${isToneDropdownOpen ? "rotate-180" : ""}`} />
@@ -152,11 +152,11 @@ const AIComposer = () => {
                         </div>
 
                         {/* Right Side: AI Image Toggle & Generate Button */}
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-2 sm:gap-2.5">
                             <button
                                 type="button"
                                 onClick={() => setGenerateImage(!generateImage)}
-                                className="flex items-center gap-2 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 py-1.5 px-3 rounded-xl text-xs font-medium cursor-pointer hover:bg-slate-200 dark:hover:bg-zinc-800 transition"
+                                className="flex items-center gap-1.5 sm:gap-2 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 py-1.5 px-2.5 sm:px-3 rounded-xl text-xs font-medium cursor-pointer hover:bg-slate-200 dark:hover:bg-zinc-800 transition"
                             >
                                 <span>AI Image</span>
                                 <div className={`relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out ${generateImage ? "bg-red-500" : "bg-slate-300 dark:bg-zinc-700"}`}>
@@ -168,12 +168,12 @@ const AIComposer = () => {
                                 type="button"
                                 onClick={handleGenerate}
                                 disabled={loading}
-                                className="bg-slate-900 hover:bg-slate-800 dark:bg-red-600 dark:hover:bg-red-500 text-white flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer disabled:opacity-50 shadow-xs"
+                                className="bg-slate-900 hover:bg-slate-800 dark:bg-red-600 dark:hover:bg-red-500 text-white flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-xl text-xs font-medium transition cursor-pointer disabled:opacity-50 shadow-xs"
                             >
                                 {loading ? (
                                     <>
                                         <Loader2Icon className="size-3.5 animate-spin" />
-                                        <span>Generating...</span>
+                                        <span className="hidden sm:inline">Generating...</span>
                                     </>
                                 ) : (
                                     <>
@@ -190,11 +190,11 @@ const AIComposer = () => {
 
 
             {/* AI Generated Posts */}
-            <div className="space-y-6 pt-12 border-t border-slate-200 dark:border-zinc-800">
+            <div className="space-y-6 pt-10 sm:pt-12 border-t border-slate-200 dark:border-zinc-800">
                 <div className="flex items-center justify-between text-slate-900 dark:text-white">
                     <div className="flex items-center gap-2">
                         <HistoryIcon className="size-5 text-slate-500 dark:text-zinc-400" />
-                        <h2 className="text-xl font-medium">
+                        <h2 className="text-lg sm:text-xl font-medium">
                             Recent Generations
                         </h2>
                     </div>
@@ -203,13 +203,13 @@ const AIComposer = () => {
                     </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                     {generations.map((gen) => (
-                        <div key={gen._id} className="group bg-white dark:bg-zinc-950 rounded-2xl border border-slate-200 dark:border-zinc-800 p-5 hover:border-red-300 dark:hover:border-red-700/60 transition-all relative overflow-hidden shadow-xs">
+                        <div key={gen._id} className="group bg-white dark:bg-zinc-950 rounded-2xl border border-slate-200 dark:border-zinc-800 p-4 sm:p-5 hover:border-red-300 dark:hover:border-red-700/60 transition-all relative overflow-hidden shadow-xs">
                             <div className="flex flex-col h-full space-y-4">
 
                                 <div className="flex items-center justify-between">
-                                    <span className="text-xs text-slate-400 dark:text-zinc-500 uppercase tracking-widest">{new Date(gen.createdAt).toLocaleString()}</span>
+                                    <span className="text-xs text-slate-400 dark:text-zinc-500 uppercase tracking-widest">{new Date(gen.createdAt).toLocaleDateString()}</span>
                                     <span className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50 px-2 py-0.5 rounded-md font-medium">{gen.tone}</span>
                                 </div>
 
@@ -237,7 +237,7 @@ const AIComposer = () => {
 
                     {
                         generations.length === 0 && (
-                            <div className="col-span-full py-20 text-center space-y-2">
+                            <div className="col-span-full py-16 sm:py-20 text-center space-y-2">
                                 <div className="size-12 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl flex items-center justify-center mx-auto text-slate-400 dark:text-zinc-500">
                                     <Wand2Icon className="size-6" />
                                 </div>
@@ -250,24 +250,24 @@ const AIComposer = () => {
 
             {/* Scheduler Modal */}
             {activeScheduler && (
-                <div className="fixed inset-0 min-h-screen z-50 flex items-center justify-center p-4 bg-slate-900/50 dark:bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[90vh]">
+                <div className="fixed inset-0 min-h-screen z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 dark:bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[92vh]">
 
-                        <div className="flex items-center justify-between px-8 py-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50">
-                            <h3 className="text-slate-900 dark:text-white font-medium text-lg">Schedule Generation</h3>
-                            <button onClick={() => setActiveScheduler(null)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 dark:text-zinc-500 transition-colors cursor-pointer">
+                        <div className="flex items-center justify-between px-5 sm:px-8 py-3.5 sm:py-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50">
+                            <h3 className="text-slate-900 dark:text-white font-medium text-base sm:text-lg">Schedule Generation</h3>
+                            <button onClick={() => setActiveScheduler(null)} className="p-1.5 sm:p-2 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 dark:text-zinc-500 transition-colors cursor-pointer">
                                 <XIcon className="size-5" />
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-8 space-y-4">
-                            <div className="bg-slate-50 dark:bg-zinc-900/60 rounded-2xl p-6 border border-slate-200 dark:border-zinc-800 space-y-4">
+                        <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-4">
+                            <div className="bg-slate-50 dark:bg-zinc-900/60 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-zinc-800 space-y-4">
                                 <p className="text-slate-800 dark:text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">
                                     {activeScheduler.prompt}
                                 </p>
                             </div>
 
-                            <div className="bg-slate-50 dark:bg-zinc-900/60 rounded-2xl p-6 border border-slate-200 dark:border-zinc-800 space-y-4">
+                            <div className="bg-slate-50 dark:bg-zinc-900/60 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-zinc-800 space-y-4">
                                 <p className="text-slate-800 dark:text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">
                                     {activeScheduler.content}
                                 </p>
@@ -275,9 +275,9 @@ const AIComposer = () => {
                             </div>
                         </div>
 
-                        <div className="px-8 border-t bg-slate-50/50 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-800 py-6 space-y-6">
+                        <div className="px-5 sm:px-8 border-t bg-slate-50/50 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-800 py-4 sm:py-6 space-y-4 sm:space-y-6">
                             {/* Options */}
-                            <div className="space-y-6">
+                            <div className="space-y-4 sm:space-y-6">
                                 <div>
                                     <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-widest mb-3">Select Channels</label>
                                     <div className="flex flex-wrap gap-2">
@@ -293,7 +293,7 @@ const AIComposer = () => {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                     <div className="relative">
                                         <CalendarIcon className="size-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none" />
                                         <input
@@ -307,7 +307,7 @@ const AIComposer = () => {
                                         <ClockIcon className="size-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none" />
                                         <input
                                             type="time"
-                                            className="w-full pl-11 pr-4 py-3 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-white text-sm focus:outline-none focus:border-red-400 dark:focus:border-red-500/50 transition-all"
+                                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-white text-sm focus:outline-none focus:border-red-400 dark:focus:border-red-500/50 transition-all"
                                             value={scheduledTime}
                                             onChange={(e) => setScheduledTime(e.target.value)}
                                         />

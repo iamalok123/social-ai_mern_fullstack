@@ -160,9 +160,17 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
                     className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer group"
                     title="User account settings"
                 >
-                    <div className="size-8.5 rounded-full bg-linear-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-sm font-semibold shrink-0 shadow-xs">
-                        {user?.name?.charAt(0).toUpperCase() || "U"}
-                    </div>
+                    {user?.picture ? (
+                        <img
+                            src={user.picture}
+                            alt={user.name}
+                            className="size-8.5 rounded-full object-cover shrink-0 border border-slate-200 dark:border-zinc-700 shadow-xs"
+                        />
+                    ) : (
+                        <div className="size-8.5 rounded-full bg-linear-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-sm font-semibold shrink-0 shadow-xs">
+                            {user?.name?.charAt(0).toUpperCase() || "U"}
+                        </div>
+                    )}
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-slate-900 dark:text-white truncate group-hover:text-orange-500 transition-colors">{user?.name || "Guest User"}</p>
                         <p className="text-xs text-slate-500 dark:text-zinc-400 truncate">{user?.email || "Signed Out"}</p>
