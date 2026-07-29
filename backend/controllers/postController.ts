@@ -6,6 +6,18 @@ import { Generation } from "../models/Generation.js";
 import { Post } from "../models/Post.js";
 
 
+import { generateAIImage } from "../services/imageGenService.js";
+
+const themeStyleMap: Record<string, string> = {
+    professional: "clean, corporate, minimalist studio photography style",
+    creative: "vibrant artistic style, rich color palette, dynamic composition",
+    funny: "bold comic-style illustration, vibrant colors, humorous exaggerated style",
+    minimalist: "flat design, soft pastel colors, plenty of negative space",
+    excited: "energetic bright neon aesthetic, high dynamic action style",
+    meme: "bold comic-style illustration, vibrant colors, humorous exaggerated style",
+    cyberpunk: "neon-lit futuristic cyberpunk aesthetic, high contrast",
+};
+
 // Generate post
 // POST /api/posts/generate
 export const generatePost = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -25,67 +37,66 @@ export const generatePost = async (req: AuthRequest, res: Response): Promise<voi
 
         const ai = new GoogleGenAI({ apiKey });
 
-        // Generate Text with fallback
+        // Generate Text with multi-model fallback & dynamic fallback generator
         let content = "";
         let imagePrompt = prompt;
+        let generatedSuccessfully = false;
 
-        try {
-            const textResponse = await ai.models.generateContent({
-                model: "gemini-2.0-flash",
-                contents: `Generate a social media post based on this prompt: "${prompt}".
-                    Tone: ${tone || "professional"}.
-                    Include relevant hashtags.
-                    Format the response as JSON with "content" and "imagePrompt" fields.
-                    The "imagePrompt" should be a highly descriptive prompt for an image generator that complements the post.`,
-            });
+        const modelsToTry = [
+            process.env.GEMINI_MODEL || "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-1.5-flash"
+        ];
 
-            const rawText = textResponse.text || "";
-            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-            const data = jsonMatch ? JSON.parse(jsonMatch[0]) : { content: rawText, imagePrompt: prompt };
-            content = data.content || rawText;
-            imagePrompt = data.imagePrompt || prompt;
-        } catch (modelErr: any) {
-            console.warn("Gemini text API rate limit/error, using AI fallback generator:", modelErr?.message || modelErr);
-            // High quality fallback template matching prompt & tone
-            content = `🚀 Key insights on ${prompt}:\n\n1. Built with modern, high-performance architecture for seamless scalability.\n2. Designed to optimize workflow efficiency and increase engagement.\n3. Delivers exceptional quality and robust reliability.\n\n#Innovation #${tone || "Tech"} #Growth #SocialAI`;
+        for (const modelName of modelsToTry) {
+            try {
+                console.log(`📝 [TEXT GEN] Requesting text post via Gemini Model: ${modelName}...`);
+                const textResponse = await ai.models.generateContent({
+                    model: modelName,
+                    contents: `You are an expert AI social media content strategist and visual prompt architect.
+Generate an engaging, high-performing social media post based on this request: "${prompt}".
+
+Requirements:
+1. "content": Write a comprehensive, detailed, and captivating post between 100 and 200 words. Do NOT write short 1-2 sentence posts. Include a compelling hook, detailed insights or narrative, actionable takeaways, a clear call to action (CTA), and 3-5 trending hashtags. Make it a LONG and detailed post.
+2. "imagePrompt": Create a vivid, highly descriptive, cinematic visual scene prompt (30-60 words) that explicitly reflects the core message, subject matter, and emotion of the generated post text. Describe subject details, lighting, ambiance, and dynamic action. Make the image generation explicitly aware of the text content.
+
+Tone/Style: ${tone || "Professional"}.
+
+Format your output STRICTLY as a valid JSON object with keys "content" and "imagePrompt". Do not include markdown code fence formatting outside the JSON.`,
+                });
+
+                const rawText = textResponse.text || "";
+                const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+                const data = jsonMatch ? JSON.parse(jsonMatch[0]) : { content: rawText, imagePrompt: prompt };
+                
+                if (data.content) {
+                    content = data.content;
+                    imagePrompt = data.imagePrompt || prompt;
+                    generatedSuccessfully = true;
+                    console.log(`✅ [TEXT GEN PROVIDER] Generated via Gemini Model (${modelName})`);
+                    break;
+                }
+            } catch (err: any) {
+                console.warn(`⚠️ [TEXT GEN] Gemini model ${modelName} attempt failed (${err?.message || err}), trying next model...`);
+            }
+        }
+
+        if (!generatedSuccessfully || !content) {
+            console.log(`✅ [TEXT GEN PROVIDER] Generated via Dynamic Fallback Engine (Gemini API limits reached)`);
+            const formattedTopic = prompt.trim();
+            const capitalizedTopic = formattedTopic.charAt(0).toUpperCase() + formattedTopic.slice(1);
+            
+            content = `🚀 Comprehensive Guide & Deep Dive: ${capitalizedTopic}\n\nIn today's fast-evolving digital landscape, mastering ${formattedTopic} has become an essential strategy for creators, professionals, and forward-thinking teams. Whether you are building new solutions from scratch or refining your existing workflows, taking a structured approach to this topic drives substantial, measurable impact.\n\nKey Strategic Pillars for Success:\n• Strategic Vision: Align your core goals with actionable steps designed specifically around ${formattedTopic}.\n• Modern Frameworks & Tools: Implement cutting-edge automation and proven industry practices to eliminate operational friction.\n• Continuous Optimization: Measure key metrics, gather feedback, and continuously iterate to sustain long-term growth.\n\nBy taking proactive initiative on ${formattedTopic}, you position yourself for long-term productivity and innovation in your field.\n\n💬 What is your biggest challenge or top tip when working on ${formattedTopic}? We would love to hear your insights in the comments below!\n\n#${formattedTopic.replace(/[^a-zA-Z0-9]/g, "") || "Tech"} #${tone || "Professional"} #Innovation #GrowthMindset #Leadership #FutureOfWork`;
+
+            imagePrompt = `A visually breathtaking cinematic concept illustration representing ${formattedTopic}. Rendered in a high-detail 3D artistic style featuring dynamic ambient studio lighting, rich colors, and abstract futuristic visual elements that directly capture the spirit of ${formattedTopic}.`;
         }
 
         let mediaUrl = "";
         if (generateImage) {
-            try {
-                // Try Gemini Imagen 3 first
-                const imageResponse = await ai.models.generateImages({
-                    model: 'imagen-3.0-generate-002',
-                    prompt: imagePrompt,
-                    config: {
-                        numberOfImages: 1,
-                        outputMimeType: 'image/jpeg',
-                    },
-                });
-
-                const base64Bytes = imageResponse.generatedImages?.[0]?.image?.imageBytes;
-
-                if (base64Bytes) {
-                    const dataUri = `data:image/jpeg;base64,${base64Bytes}`;
-                    const uploadResult = await cloudinary.uploader.upload(dataUri, {
-                        folder: "ai-generations",
-                    });
-                    mediaUrl = uploadResult.secure_url;
-                }
-            } catch (imgError: any) {
-                console.warn("Gemini Imagen not enabled on API key, generating AI image via Pollinations AI:", imgError?.message || imgError);
-                try {
-                    // Fast AI Image Generation Fallback with Cloudinary Upload
-                    const aiImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1080&height=1080&nologo=true`;
-                    const uploadResult = await cloudinary.uploader.upload(aiImageUrl, {
-                        folder: "ai-generations",
-                    });
-                    mediaUrl = uploadResult.secure_url;
-                } catch (fallbackError: any) {
-                    console.error("AI Image upload error:", fallbackError?.message || fallbackError);
-                    mediaUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(imagePrompt)}?width=1080&height=1080&nologo=true`;
-                }
-            }
+            const toneKey = (tone || "").toLowerCase();
+            const styleSuffix = themeStyleMap[toneKey] || "";
+            const finalImagePrompt = `${prompt} - ${imagePrompt}${styleSuffix ? ", " + styleSuffix : ""}`;
+            mediaUrl = await generateAIImage(finalImagePrompt);
         }
 
         // Save generation to DB
@@ -95,7 +106,8 @@ export const generatePost = async (req: AuthRequest, res: Response): Promise<voi
             content,
             mediaUrl: mediaUrl || undefined,
             mediaType: mediaUrl ? "image" : undefined,
-            tone
+            tone,
+            theme: req.body.theme || tone
         });
 
         res.status(201).json(generation);

@@ -107,18 +107,43 @@ export const googleAuth = async (req: Request, res: Response): Promise<void> => 
             return;
         }
 
+        const emailUsername = email.split("@")[0];
+        const formattedEmailName = emailUsername
+            ? emailUsername.replace(/[._]/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())
+            : "Google User";
+        const targetName = name || formattedEmailName;
+
         let user = await User.findOne({ email });
 
         if (!user) {
             user = await User.create({
-                name: name || email.split("@")[0] || "Google User",
+                name: targetName,
                 email,
                 picture,
                 authProvider: "google"
             });
-        } else if (picture && user.picture !== picture) {
-            user.picture = picture;
-            await user.save();
+        } else {
+            let isModified = false;
+
+            // Update user name if generic, missing, or updated via Google
+            if (targetName && user.name !== targetName) {
+                user.name = targetName;
+                isModified = true;
+            }
+
+            if (picture && user.picture !== picture) {
+                user.picture = picture;
+                isModified = true;
+            }
+
+            if (!user.authProvider || user.authProvider === "email") {
+                user.authProvider = "google";
+                isModified = true;
+            }
+
+            if (isModified) {
+                await user.save();
+            }
         }
 
         res.status(200).json({

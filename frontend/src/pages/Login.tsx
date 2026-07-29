@@ -80,7 +80,11 @@ export default function Login() {
             return;
         }
 
-        const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "213541066225-omlh2pcajla6bl2siv8j31es8eciaphv.apps.googleusercontent.com";
+        const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        if (!googleClientId) {
+            console.warn("VITE_GOOGLE_CLIENT_ID not set — Google Sign-In disabled.");
+            return;
+        }
 
         const setupGoogleBtn = () => {
             if ((window as any).google?.accounts?.id) {

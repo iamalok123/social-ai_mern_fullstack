@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express, { NextFunction, Request, Response } from 'express';
 import cors from "cors";
+import rateLimit from "express-rate-limit";
 import connectDB from "./config/db.js";
 import authRouter from "./routes/authRoutes.js";
 import socialAuthRouter from "./routes/socialAuthRoutes.js";
@@ -15,7 +16,29 @@ const app = express();
 await connectDB();
 
 // Middleware
-app.use(cors())
+app.use(cors({
+    origin: process.env.FRONTEND_URL || "*",
+    credentials: true,
+}))
+
+// Rate Limiting
+const generalLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 100,                  // 100 requests per window per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Too many requests, please try again later." },
+});
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 20,                   // 20 auth attempts per window per IP
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { message: "Too many authentication attempts, please try again later." },
+});
+
+app.use(generalLimiter);
 app.use(express.json());
 
 const port = process.env.PORT || 3000;
@@ -24,7 +47,7 @@ app.get('/', (_req: Request, res: Response) => {
     res.send('Server is Live!');
 });
 
-app.use("/api/auth", authRouter);
+app.use("/api/auth", authLimiter, authRouter);
 app.use("/api/oauth", socialAuthRouter);
 app.use("/api/accounts", accountRouter);
 app.use("/api/posts", postRouter);

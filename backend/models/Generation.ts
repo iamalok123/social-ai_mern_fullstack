@@ -22,6 +22,7 @@ const generationSchema = new mongoose.Schema({
         enum: ["image", "video"]
     },
     tone: { type: String },
+    theme: { type: String },
 }, { timestamps: true });
 
 export const Generation = mongoose.model("Generation", generationSchema);
