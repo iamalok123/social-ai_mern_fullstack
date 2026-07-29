@@ -1,5 +1,6 @@
-import { CalendarDaysIcon, LayoutDashboardIcon, LogOutIcon, UsersIcon, Wand2Icon, XIcon, KeyRoundIcon } from "lucide-react";
+import { CalendarDaysIcon, LayoutDashboardIcon, LogOutIcon, UsersIcon, Wand2Icon, XIcon, KeyRoundIcon, Menu } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext.tsx";
 
@@ -20,11 +21,27 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
     const navigate = useNavigate();
     const { logout, user } = useAuth();
 
-    const handleUserCardClick = () => {
+    const [showUserMenu, setShowUserMenu] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+                setShowUserMenu(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const handleChangePasswordClick = () => {
+        setShowUserMenu(false);
+        setIsOpen(false);
         if (user?.authProvider === "google") {
-            toast.info("Password change unavailable for Google accounts.");
+            toast.info("Password change is unavailable for Google authenticated accounts.");
+            navigate("/change-password");
         } else {
-            setIsOpen(false);
             navigate("/change-password");
         }
     };
@@ -89,36 +106,71 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
                 </nav>
             </div>
 
-            {/* Bottom Footer Section: User Profile & Sign Out */}
-            <div className="p-4 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0 mt-auto space-y-2">
+            {/* Bottom Footer Section: User Profile & Popover Dropdown Menu */}
+            <div className="p-3 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0 mt-auto relative" ref={menuRef}>
+                
+                {/* User Menu Popover */}
+                {showUserMenu && (
+                    <div className="absolute bottom-full mb-2 left-3 right-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-2 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                        {/* Header User Badge */}
+                        <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 mb-1">
+                            <div className="flex items-center gap-2 mb-1">
+                                <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">{user?.name || "Guest User"}</p>
+                                <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-medium shrink-0 ${
+                                    user?.authProvider === "google"
+                                        ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20"
+                                        : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                                }`}>
+                                    {user?.authProvider === "google" ? "Google Account" : "Email Account"}
+                                </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">{user?.email || ""}</p>
+                        </div>
+
+                        {/* Change Password Option */}
+                        <button
+                            onClick={handleChangePasswordClick}
+                            className="flex items-center gap-2.5 px-2.5 py-2 w-full rounded-xl text-xs text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer text-left font-medium"
+                        >
+                            <KeyRoundIcon className="size-4 text-orange-500 shrink-0" />
+                            <span>Change Password</span>
+                        </button>
+
+                        <div className="h-px bg-slate-100 dark:bg-zinc-800 my-1" />
+
+                        {/* Sign Out Option */}
+                        <button
+                            onClick={() => {
+                                setShowUserMenu(false);
+                                logout();
+                                setIsOpen(false);
+                                navigate("/");
+                            }}
+                            className="flex items-center gap-2.5 px-2.5 py-2 w-full rounded-xl text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer text-left font-medium"
+                        >
+                            <LogOutIcon className="size-4 shrink-0" />
+                            <span>Sign Out</span>
+                        </button>
+                    </div>
+                )}
+
+                {/* User Card Trigger Button */}
                 <div
-                    onClick={handleUserCardClick}
-                    title={user?.authProvider === "email" ? "Click to change password" : "Google Authenticated User"}
+                    onClick={() => setShowUserMenu(!showUserMenu)}
                     className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer group"
+                    title="User account settings"
                 >
-                    <div className="size-8 rounded-full bg-linear-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-sm font-semibold shrink-0 shadow-xs">
+                    <div className="size-8.5 rounded-full bg-linear-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-sm font-semibold shrink-0 shadow-xs">
                         {user?.name?.charAt(0).toUpperCase() || "U"}
                     </div>
                     <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-slate-900 dark:text-white truncate group-hover:text-orange-500 transition-colors">{user?.name || "Guest User"}</p>
                         <p className="text-xs text-slate-500 dark:text-zinc-400 truncate">{user?.email || "Signed Out"}</p>
                     </div>
-                    {user?.authProvider === "email" && (
-                        <KeyRoundIcon className="w-4 h-4 text-slate-400 group-hover:text-orange-500 transition-colors shrink-0" />
-                    )}
+                    <div className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-zinc-700/60 text-slate-400 dark:text-zinc-400 group-hover:text-slate-900 dark:group-hover:text-white transition-colors shrink-0">
+                        <Menu className="size-4" />
+                    </div>
                 </div>
-
-                <button
-                    onClick={() => {
-                        logout();
-                        setIsOpen(false);
-                        navigate("/");
-                    }}
-                    className="flex items-center gap-2.5 px-3 py-2 w-full rounded-xl text-sm text-slate-600 dark:text-zinc-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400 transition-all duration-150 cursor-pointer font-medium"
-                >
-                    <LogOutIcon className="size-4.5 shrink-0" />
-                    <span>Sign Out</span>
-                </button>
             </div>
         </div>
     );

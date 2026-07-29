@@ -57,20 +57,20 @@ export default function ChangePassword() {
 
     if (user?.authProvider === "google") {
         return (
-            <div className="max-w-2xl mx-auto py-12 px-4 text-center">
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 shadow-xl">
-                    <div className="w-16 h-16 mx-auto bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mb-4">
-                        <KeyRoundIcon className="w-8 h-8" />
+            <div className="h-full max-w-lg mx-auto flex flex-col justify-center px-4 overflow-hidden">
+                <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-6 shadow-xl text-center">
+                    <div className="w-12 h-12 mx-auto bg-amber-500/10 text-amber-500 rounded-2xl flex items-center justify-center mb-3">
+                        <KeyRoundIcon className="w-6 h-6" />
                     </div>
-                    <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Password Change Unavailable</h2>
-                    <p className="text-slate-600 dark:text-slate-400 mb-6">
-                        You signed in using <span className="font-semibold text-slate-900 dark:text-white">Google Authentication</span>. Your account authentication is managed securely by Google.
+                    <h2 className="text-lg font-bold text-zinc-900 dark:text-white mb-2">Password Change Unavailable</h2>
+                    <p className="text-xs text-zinc-600 dark:text-zinc-400 mb-5 max-w-sm mx-auto">
+                        You signed in using <span className="font-semibold text-zinc-900 dark:text-white">Google Authentication</span>. Your account authentication is managed securely by Google.
                     </p>
                     <button
                         onClick={() => navigate("/dashboard")}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-medium rounded-xl transition-all shadow-md shadow-orange-500/20"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-xs font-medium rounded-xl transition-all shadow-md shadow-orange-500/20 cursor-pointer"
                     >
-                        <ArrowLeftIcon className="w-4 h-4" /> Return to Dashboard
+                        <ArrowLeftIcon className="w-3.5 h-3.5" /> Return to Dashboard
                     </button>
                 </div>
             </div>
@@ -78,114 +78,116 @@ export default function ChangePassword() {
     }
 
     return (
-        <div className="max-w-2xl mx-auto py-6 px-4">
-            <button
-                onClick={() => navigate("/dashboard")}
-                className="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white mb-6 transition-colors"
-            >
-                <ArrowLeftIcon className="w-4 h-4" /> Back to Dashboard
-            </button>
+        <div className="h-full max-w-lg mx-auto flex flex-col justify-center px-4 overflow-hidden">
+            <div className="mb-3 flex items-center justify-between">
+                <button
+                    onClick={() => navigate("/dashboard")}
+                    className="inline-flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
+                >
+                    <ArrowLeftIcon className="w-3.5 h-3.5" /> Back to Dashboard
+                </button>
+            </div>
 
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 sm:p-8 shadow-xl">
-                <div className="flex items-center gap-3 mb-6">
-                    <div className="w-12 h-12 bg-linear-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-orange-500/20">
-                        <ShieldCheckIcon className="w-6 h-6" />
+            <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl p-5 sm:p-6 shadow-xl">
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="w-10 h-10 bg-linear-to-r from-orange-500 to-red-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-orange-500/20 shrink-0">
+                        <ShieldCheckIcon className="w-5 h-5" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Change Password</h1>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Update your account password securely</p>
+                        <h1 className="text-lg font-bold text-zinc-900 dark:text-white">Change Password</h1>
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">Update your account password securely</p>
                     </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-3">
                     {/* Current Password */}
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                             Current Password
                         </label>
                         <div className="relative">
-                            <LockIcon className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <LockIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                             <input
                                 type={showCurrentPassword ? "text" : "password"}
                                 required
                                 value={currentPassword}
                                 onChange={(e) => setCurrentPassword(e.target.value)}
                                 placeholder="••••••••"
-                                className="w-full pl-11 pr-11 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-orange-500 transition-all text-sm"
+                                className="w-full pl-9 pr-9 py-2 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-zinc-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-orange-500 transition-all text-xs"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                             >
-                                {showCurrentPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                                {showCurrentPassword ? <EyeOffIcon className="w-3.5 h-3.5" /> : <EyeIcon className="w-3.5 h-3.5" />}
                             </button>
                         </div>
                     </div>
 
                     {/* New Password */}
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                             New Password
                         </label>
                         <div className="relative">
-                            <LockIcon className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <LockIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                             <input
                                 type={showNewPassword ? "text" : "password"}
                                 required
                                 value={newPassword}
                                 onChange={(e) => setNewPassword(e.target.value)}
                                 placeholder="••••••••"
-                                className="w-full pl-11 pr-11 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-orange-500 transition-all text-sm"
+                                className="w-full pl-9 pr-9 py-2 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-zinc-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-orange-500 transition-all text-xs"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowNewPassword(!showNewPassword)}
-                                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                             >
-                                {showNewPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                                {showNewPassword ? <EyeOffIcon className="w-3.5 h-3.5" /> : <EyeIcon className="w-3.5 h-3.5" />}
                             </button>
                         </div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Must be at least 6 characters</p>
+                        <p className="text-[10px] text-zinc-500 dark:text-zinc-400 mt-0.5">Must be at least 6 characters long</p>
                     </div>
 
                     {/* Confirm Password */}
                     <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5">
+                        <label className="block text-xs font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                             Confirm New Password
                         </label>
                         <div className="relative">
-                            <LockIcon className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <LockIcon className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" />
                             <input
                                 type={showConfirmPassword ? "text" : "password"}
                                 required
                                 value={confirmPassword}
                                 onChange={(e) => setConfirmPassword(e.target.value)}
                                 placeholder="••••••••"
-                                className="w-full pl-11 pr-11 py-2.5 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-orange-500 transition-all text-sm"
+                                className="w-full pl-9 pr-9 py-2 bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 rounded-xl text-zinc-900 dark:text-white focus:outline-hidden focus:ring-2 focus:ring-orange-500 transition-all text-xs"
                             />
                             <button
                                 type="button"
                                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-colors cursor-pointer"
                             >
-                                {showConfirmPassword ? <EyeOffIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                                {showConfirmPassword ? <EyeOffIcon className="w-3.5 h-3.5" /> : <EyeIcon className="w-3.5 h-3.5" />}
                             </button>
                         </div>
                     </div>
 
-                    <div className="pt-2 flex gap-3">
+                    <div className="pt-2 flex gap-2.5">
                         <button
                             type="button"
                             onClick={() => navigate("/dashboard")}
-                            className="w-1/2 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-medium rounded-xl transition-all text-sm"
+                            className="w-1/2 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-medium rounded-xl transition-all text-xs cursor-pointer"
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-1/2 py-2.5 bg-linear-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white font-medium rounded-xl transition-all shadow-md shadow-orange-500/20 disabled:opacity-50 text-sm flex items-center justify-center gap-2"
+                            className="w-1/2 py-2 bg-linear-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white font-medium rounded-xl transition-all shadow-md shadow-orange-500/20 disabled:opacity-50 text-xs flex items-center justify-center gap-2 cursor-pointer"
                         >
                             {loading ? "Updating..." : "Update Password"}
                         </button>
