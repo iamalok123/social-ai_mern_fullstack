@@ -25,15 +25,32 @@ export const generatePost = async (req: AuthRequest, res: Response): Promise<voi
 
         const ai = new GoogleGenAI({ apiKey });
 
-        // Generate Text
-        const textResponse = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: `Generate a social media post based on this prompt: "${prompt}".
-                Tone: ${tone || "professional"}.
-                Include relevant hashtags.
-                Format the response as JSON with "content" and "imagePrompt" fields.
-                The "imagePrompt" should be a highly descriptive prompt for an image generator that complements the post.`,
-        });
+        // Generate Text with fallback
+        let textResponse: any;
+        try {
+            textResponse = await ai.models.generateContent({
+                model: "gemini-2.0-flash",
+                contents: `Generate a social media post based on this prompt: "${prompt}".
+                    Tone: ${tone || "professional"}.
+                    Include relevant hashtags.
+                    Format the response as JSON with "content" and "imagePrompt" fields.
+                    The "imagePrompt" should be a highly descriptive prompt for an image generator that complements the post.`,
+            });
+        } catch (modelErr: any) {
+            if (modelErr?.status === 429 || modelErr?.message?.includes("Quota exceeded")) {
+                res.status(429).json({ message: "Gemini API rate limit / quota exceeded. Please wait 1 minute and try again." });
+                return;
+            }
+            console.warn("gemini-2.0-flash fallback to gemini-2.0-flash-lite:", modelErr?.message);
+            textResponse = await ai.models.generateContent({
+                model: "gemini-2.0-flash-lite",
+                contents: `Generate a social media post based on this prompt: "${prompt}".
+                    Tone: ${tone || "professional"}.
+                    Include relevant hashtags.
+                    Format the response as JSON with "content" and "imagePrompt" fields.
+                    The "imagePrompt" should be a highly descriptive prompt for an image generator that complements the post.`,
+            });
+        }
 
         let content = "";
         let imagePrompt = prompt;
