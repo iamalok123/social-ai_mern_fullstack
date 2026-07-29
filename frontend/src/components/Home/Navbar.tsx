@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
 import { ArrowRightIcon } from "lucide-react";
 import ThemeToggle from "../ThemeToggle";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Navbar() {
-    const { user } = { user: false };
+    const { user } = useAuth();
 
     return (
         <nav className="sticky top-0 z-50 bg-white/80 dark:bg-black/90 backdrop-blur-lg border-b border-slate-100 dark:border-zinc-800 transition-colors">
@@ -24,22 +25,22 @@ export default function Navbar() {
                     </a>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4 sm:gap-5">
                     <ThemeToggle />
 
                     {user ? (
-                        <Link to="/dashboard" className="flex items-center gap-1.5 text-sm font-medium bg-red-500 hover:bg-red-600 dark:bg-orange-600 dark:hover:bg-orange-500 text-white px-4 py-2 rounded-full shadow-sm">
+                        <Link to="/dashboard" className="flex items-center gap-1.5 text-sm font-medium bg-red-500 hover:bg-red-600 dark:bg-orange-600 dark:hover:bg-orange-500 text-white px-4 py-2 rounded-full shadow-sm transition-all">
                             Go to Dashboard <ArrowRightIcon className="size-3.5" />
                         </Link>
                     ) : (
-                        <>
-                            <Link to="/login" className="text-sm text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-orange-400 hidden sm:block">
+                        <div className="flex items-center gap-3.5 sm:gap-5">
+                            <Link to="/login" className="text-sm font-medium text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-orange-400 hidden sm:block transition-colors">
                                 Sign In
                             </Link>
-                            <Link to="/login" className="flex items-center gap-1.5 text-sm bg-red-500 hover:bg-red-600 dark:bg-orange-600 dark:hover:bg-orange-500 text-white px-4 py-2 rounded-full shadow-sm hover:shadow-orange-500/20">
+                            <Link to="/login" className="flex items-center gap-1.5 text-sm font-medium bg-red-500 hover:bg-red-600 dark:bg-orange-600 dark:hover:bg-orange-500 text-white px-4 py-2 rounded-full shadow-sm hover:shadow-orange-500/20 transition-all">
                                 Get Started <ArrowRightIcon className="size-3.5" />
                             </Link>
-                        </>
+                        </div>
                     )}
                 </div>
             </div>

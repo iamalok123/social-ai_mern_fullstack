@@ -1,52 +1,9 @@
 import { Response } from "express";
 import { AuthRequest } from "../middlewares/authMiddleware.js";
 import { GoogleGenAI } from "@google/genai";
-import axios from "axios";
 import { cloudinary } from "../config/cloudinary.js";
 import { Generation } from "../models/Generation.js";
 import { Post } from "../models/Post.js";
-
-
-// -------------  todo: SKIP Using Leonardo AI in later -------------------
-// Helper to poll Leonardo.ai
-const pollLeonardoJob = async (generationId: string, apiKey: string): Promise<string> => {
-    const maxRetries = 20;
-    const delay = 5000;
-
-    for (let i = 0; i < maxRetries; i++) {
-        try {
-            const response = await axios.get(`https://cloud.leonardo.ai/api/rest/v1/generations/${generationId}`, {
-                headers: {
-                    accept: "application/json",
-                    authorization: `Bearer ${apiKey}`
-                }
-            });
-
-            const generation = response.data?.generations_by_pk;
-            if (generation) {
-                if (generation.status === "COMPLETE") {
-                    if (generation.generated_images && generation.generated_images.length > 0) {
-                        return generation.generated_images[0].url;
-                    }
-                    throw new Error("Generation complete but no images found.");
-                }
-
-                if (generation.status === "FAILED") {
-                    throw new Error("Leonardo.ai generation failed.");
-                }
-            }
-        } catch (error: any) {
-            if (error?.message?.includes("Leonardo.ai generation failed") || error?.message?.includes("no images found")) {
-                throw error;
-            }
-            console.warn(`Polling Leonardo job attempt ${i + 1} failed:`, error?.message);
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, delay));
-    }
-
-    throw new Error("Failed to poll Leonardo.ai: Max retries reached.");
-}
 
 
 // Generate post
@@ -93,46 +50,29 @@ export const generatePost = async (req: AuthRequest, res: Response): Promise<voi
 
         let mediaUrl = "";
         if (generateImage) {
-            const leonardoKey = process.env.LEONARDO_API_KEY;
-            if (leonardoKey) {
-                try {
-                    // Use Leonardo.ai for image generation
-                    const leoResponse = await axios.post(
-                        "https://cloud.leonardo.ai/api/rest/v2/generations",
-                        {
-                            "public": false,
-                            "model": "gpt-image-2",
-                            "parameters": {
-                                "quality": "LOW",
-                                "prompt": imagePrompt,
-                                "quantity": 1,
-                                "width": 1024,
-                                "height": 1024,
-                                "prompt_enhance": "OFF"
-                            }
-                        },
-                        {
-                            headers: {
-                                accept: "application/json",
-                                authorization: `Bearer ${leonardoKey}`,
-                                "content-type": "application/json",
-                            }
-                        }
-                    );
+            try {
+                // Generate Image using Gemini Imagen 3
+                const imageResponse = await ai.models.generateImages({
+                    model: 'imagen-3.0-generate-002',
+                    prompt: imagePrompt,
+                    config: {
+                        numberOfImages: 1,
+                        outputMimeType: 'image/jpeg',
+                    },
+                });
 
-                    const generationId = leoResponse.data.generate.generationId;
-                    const tempUrl = await pollLeonardoJob(generationId, leonardoKey);
+                const base64Bytes = imageResponse.generatedImages?.[0]?.image?.imageBytes;
 
-                    // Upload to Cloudinary for persistence
-                    const uploadResult = await cloudinary.uploader.upload(tempUrl, {
+                if (base64Bytes) {
+                    // Upload base64 image to Cloudinary for permanent storage
+                    const dataUri = `data:image/jpeg;base64,${base64Bytes}`;
+                    const uploadResult = await cloudinary.uploader.upload(dataUri, {
                         folder: "ai-generations",
                     });
                     mediaUrl = uploadResult.secure_url;
-                } catch (imgError: any) {
-                    console.error("Leonardo image generation error:", imgError?.response?.data || imgError?.message);
                 }
-            } else {
-                console.warn("LEONARDO_API_KEY is not set in environment variables. Skipping image generation.");
+            } catch (imgError: any) {
+                console.error("Gemini Imagen image generation error:", imgError?.message || imgError);
             }
         }
 

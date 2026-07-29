@@ -1,5 +1,5 @@
 import { CalendarDaysIcon, LayoutDashboardIcon, LogOutIcon, UsersIcon, Wand2Icon, XIcon } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext.tsx";
 
 interface SidebarProps {
@@ -16,6 +16,7 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
     ];
 
     const location = useLocation();
+    const navigate = useNavigate();
     const { logout, user } = useAuth();
 
     return (
@@ -94,6 +95,7 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
                     onClick={() => {
                         logout();
                         setIsOpen(false);
+                        navigate("/");
                     }}
                     className="flex items-center gap-2.5 px-3 py-2 w-full rounded-xl text-sm text-slate-600 dark:text-zinc-400 hover:bg-red-50 dark:hover:bg-red-950/40 hover:text-red-600 dark:hover:text-red-400 transition-all duration-150 cursor-pointer font-medium"
                 >

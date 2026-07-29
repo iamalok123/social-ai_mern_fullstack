@@ -57,16 +57,17 @@ export const generateAuthUrl = async (req: AuthRequest, res: Response): Promise<
             path: { platform: platform as any },
             query: {
                 profileId,
-                redirect_url: redirectUrl
-            }
+                redirectUrl,
+                redirect_url: redirectUrl,
+            } as any
         })
 
         const data = result.data as any
-        console.log("getConnectUrl responce:", JSON.stringify(data, null, 2))
+        console.log("getConnectUrl response:", JSON.stringify(data, null, 2))
 
-        const authUrl = data?.auth_url;
+        const authUrl = data?.authUrl || data?.auth_url || data?.url;
         if (!authUrl) {
-            throw new Error(`Failed to get connect url from zernio. Responce: ${JSON.stringify(data)}`)
+            throw new Error(`Failed to get connect url from zernio. Response: ${JSON.stringify(data)}`)
         }
 
         res.status(200).json({ url: authUrl })

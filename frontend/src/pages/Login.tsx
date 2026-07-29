@@ -1,42 +1,60 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MailIcon, LockIcon, ArrowRightIcon, User2Icon } from "lucide-react";
+import { MailIcon, LockIcon, ArrowRightIcon, User2Icon, EyeIcon, EyeOffIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
+import { api, API_PATHS } from "../api/axios";
 
 export default function Login() {
     const [loginState, setLoginState] = useState(true);
     const [name, setName] = useState("");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [googleLoading, setGoogleLoading] = useState(false);
     const navigate = useNavigate();
-    const { login } = useAuth();
+    const { login, user } = useAuth();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            login({
-                name: name || (email ? email.split("@")[0] : "User"),
-                email: email || "user@example.com",
-            });
+        try {
+            const endpoint = loginState ? API_PATHS.AUTH.LOGIN : API_PATHS.AUTH.REGISTER;
+            const { data } = await api.post(
+                endpoint,
+                loginState ? { email, password } : { name, email, password }
+            );
+
+            login(data, data.token);
             toast.success(loginState ? "Logged in successfully!" : "Account created successfully!");
             navigate("/dashboard");
-        }, 1000);
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || error?.message || "An error occurred");
+        } finally {
+            setLoading(false);
+        }
     };
+
+    useEffect(() => {
+        if(user){
+            navigate("/dashboard");
+        }
+    }, [user])
+
 
     const handleGoogleSignIn = () => {
         setGoogleLoading(true);
         toast.info("Connecting to Google Authentication...");
         setTimeout(() => {
             setGoogleLoading(false);
-            login({
-                name: "Google User",
-                email: "user@gmail.com",
-            });
+            login(
+                {
+                    name: "Google User",
+                    email: "user@gmail.com",
+                },
+                "mock-google-token"
+            );
             toast.success("Signed in with Google successfully!");
             navigate("/dashboard");
         }, 1200);
@@ -98,7 +116,26 @@ export default function Login() {
                             <label className="block mb-1.5 text-slate-700 dark:text-zinc-300">Password</label>
                             <div className="relative">
                                 <LockIcon className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
-                                <input type="password" required placeholder="********" className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-900 text-slate-900 dark:text-white outline-orange-500 border border-slate-200 dark:border-zinc-800 rounded-full transition-all" value={password} onChange={(e) => setPassword(e.target.value)} />
+                                <input 
+                                    type={showPassword ? "text" : "password"} 
+                                    required 
+                                    placeholder="••••••••" 
+                                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50 dark:bg-zinc-900 text-slate-900 dark:text-white outline-orange-500 border border-slate-200 dark:border-zinc-800 rounded-full transition-all" 
+                                    value={password} 
+                                    onChange={(e) => setPassword(e.target.value)} 
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300 focus:outline-none transition-colors cursor-pointer"
+                                    aria-label={showPassword ? "Hide password" : "Show password"}
+                                >
+                                    {showPassword ? (
+                                        <EyeOffIcon className="size-4" />
+                                    ) : (
+                                        <EyeIcon className="size-4" />
+                                    )}
+                                </button>
                             </div>
                         </div>
 

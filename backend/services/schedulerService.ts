@@ -6,6 +6,8 @@ import zernio from "../config/zernio.js";
 
 
 export const initScheduler = () => {
+    console.log("Scheduler service initialized");
+
     cron.schedule("* * * * *", async () => {
         try {
             const now = new Date();

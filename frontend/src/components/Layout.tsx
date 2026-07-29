@@ -1,8 +1,8 @@
 import { useState } from "react";
 import Sidebar from "./Sidebar";
-import ThemeToggle from "./ThemeToggle";
-import { Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { MenuIcon } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
 
 const pageTitle: Record<string, string> = {
     "/dashboard": "Dashboard",
@@ -12,11 +12,24 @@ const pageTitle: Record<string, string> = {
 }
 
 const Layout = () => {
+    const { isAuthenticated, isLoading } = useAuth();
+
     const location = useLocation();
     const title = pageTitle[location.pathname] || "Page Not Found";
 
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+    if (isLoading) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-slate-50">
+                <div className='size-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin'/>
+            </div>
+        )
+    }
+
+    if (!isAuthenticated) {
+        return <Navigate to="/" replace />;
+    }
     return (
         <div className="flex h-screen bg-slate-100 dark:bg-black text-slate-900 dark:text-zinc-100 font-sans transition-colors duration-200">
             {/* Mobile Overlay */}
@@ -50,9 +63,6 @@ const Layout = () => {
                                 Manage and automate your social presence
                             </p>
                         </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <ThemeToggle />
                     </div>
                 </header>
 
