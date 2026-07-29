@@ -7,12 +7,16 @@ const userSchema = new mongoose.Schema({
         unique: true
     },
     password: {
-        type: String,
-        required: true
+        type: String
     },
     name: {
         type: String,
         required: true
+    },
+    authProvider: {
+        type: String,
+        enum: ["email", "google"],
+        default: "email"
     },
     zernioProfileId: {
         type: String

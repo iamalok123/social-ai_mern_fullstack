@@ -1,5 +1,6 @@
-import { CalendarDaysIcon, LayoutDashboardIcon, LogOutIcon, UsersIcon, Wand2Icon, XIcon } from "lucide-react";
+import { CalendarDaysIcon, LayoutDashboardIcon, LogOutIcon, UsersIcon, Wand2Icon, XIcon, KeyRoundIcon } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext.tsx";
 
 interface SidebarProps {
@@ -18,6 +19,15 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { logout, user } = useAuth();
+
+    const handleUserCardClick = () => {
+        if (user?.authProvider === "google") {
+            toast.info("Password change unavailable for Google accounts.");
+        } else {
+            setIsOpen(false);
+            navigate("/change-password");
+        }
+    };
 
     return (
         <div className={`fixed ${isOpen ? "translate-x-0" : "-translate-x-full"} inset-y-0 left-0 z-50 w-64 bg-white dark:bg-zinc-950 border-r border-slate-200 dark:border-zinc-800 flex flex-col h-full transform transition-transform duration-200 ease-in-out md:relative md:translate-x-0 shrink-0`}>
@@ -81,14 +91,21 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
 
             {/* Bottom Footer Section: User Profile & Sign Out */}
             <div className="p-4 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shrink-0 mt-auto space-y-2">
-                <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800/60 transition-colors">
+                <div
+                    onClick={handleUserCardClick}
+                    title={user?.authProvider === "email" ? "Click to change password" : "Google Authenticated User"}
+                    className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer group"
+                >
                     <div className="size-8 rounded-full bg-linear-to-br from-orange-500 to-red-500 flex items-center justify-center text-white text-sm font-semibold shrink-0 shadow-xs">
                         {user?.name?.charAt(0).toUpperCase() || "U"}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{user?.name || "Guest User"}</p>
+                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate group-hover:text-orange-500 transition-colors">{user?.name || "Guest User"}</p>
                         <p className="text-xs text-slate-500 dark:text-zinc-400 truncate">{user?.email || "Signed Out"}</p>
                     </div>
+                    {user?.authProvider === "email" && (
+                        <KeyRoundIcon className="w-4 h-4 text-slate-400 group-hover:text-orange-500 transition-colors shrink-0" />
+                    )}
                 </div>
 
                 <button

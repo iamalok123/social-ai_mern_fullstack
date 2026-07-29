@@ -43,21 +43,21 @@ export default function Login() {
     }, [user])
 
 
-    const handleGoogleSignIn = () => {
+    const handleGoogleSignIn = async () => {
         setGoogleLoading(true);
-        toast.info("Connecting to Google Authentication...");
-        setTimeout(() => {
-            setGoogleLoading(false);
-            login(
-                {
-                    name: "Google User",
-                    email: "user@gmail.com",
-                },
-                "mock-google-token"
-            );
+        try {
+            const { data } = await api.post(API_PATHS.AUTH.GOOGLE_LOGIN, {
+                name: "Google User",
+                email: "googleuser@gmail.com"
+            });
+            login(data, data.token);
             toast.success("Signed in with Google successfully!");
             navigate("/dashboard");
-        }, 1200);
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || error?.message || "Google sign in failed");
+        } finally {
+            setGoogleLoading(false);
+        }
     };
 
     return (

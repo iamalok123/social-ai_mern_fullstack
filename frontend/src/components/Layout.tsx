@@ -9,6 +9,7 @@ const pageTitle: Record<string, string> = {
     "/accounts": "Social Accounts",
     "/schedule": "Post Scheduler",
     "/ai-composer": "AI Composer",
+    "/change-password": "Change Password",
 }
 
 const Layout = () => {
