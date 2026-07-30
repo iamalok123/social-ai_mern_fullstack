@@ -38,6 +38,11 @@ const authLimiter = rateLimit({
     message: { message: "Too many authentication attempts, please try again later." },
 });
 
+// Health Check Endpoint (placed before rate limiter for external pingers / uptime bots)
+app.get('/health', (_req: Request, res: Response) => {
+    res.status(200).json({ status: 'ok', uptime: process.uptime(), timestamp: new Date() });
+});
+
 app.use(generalLimiter);
 app.use(express.json());
 
