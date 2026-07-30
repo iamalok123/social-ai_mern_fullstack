@@ -19,13 +19,14 @@ export interface Platform {
     name: string;
     icon: React.ElementType;
     description: string;
+    color?: string;
 }
 
 export const PLATFORMS: Platform[] = [
-    { id: "twitter", name: "Twitter / X", icon: SiX, description: "Post tweets, threads, and media" },
-    { id: "linkedin", name: "LinkedIn", icon: LinkedInIcon, description: "Publish to your profile & company pages" },
-    { id: "facebook", name: "Facebook", icon: SiFacebook, description: "Manage your pages and profile" },
-    { id: "instagram", name: "Instagram", icon: SiInstagram, description: "Share photos, reels and stories" },
+    { id: "twitter", name: "Twitter / X", icon: SiX, description: "Post tweets, threads, and media", color: "#000000" },
+    { id: "linkedin", name: "LinkedIn", icon: LinkedInIcon, description: "Publish to your profile & company pages", color: "#0A66C2" },
+    { id: "facebook", name: "Facebook", icon: SiFacebook, description: "Manage your pages and profile", color: "#1877F2" },
+    { id: "instagram", name: "Instagram", icon: SiInstagram, description: "Share photos, reels and stories", color: "#E4405F" },
 ];
 
 export const dummyPostsData: any = [

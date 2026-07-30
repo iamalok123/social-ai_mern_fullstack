@@ -1,7 +1,5 @@
-import { PlusIcon } from "lucide-react"
 import { useEffect, useState } from "react"
 import AccountList from "../components/Account/AccountList"
-import PlatformPickerModel from "../components/Account/PlatformPickerModel"
 import { toast } from "sonner"
 import { api, API_PATHS } from "../api/axios"
 import { PLATFORMS } from "../assets/assets"
@@ -9,7 +7,6 @@ import { PLATFORMS } from "../assets/assets"
 const Accounts = () => {
     const [accounts, setAccounts] = useState<any[]>([])
     const [connecting, setConnecting] = useState<string | null>(null)
-    const [showPlatformPicker, setShowPlatformPicker] = useState(false)
 
     const fetchAccounts = async (isSync = false, platform?: string | null, successMsg?: string) => {
         try {
@@ -73,37 +70,25 @@ const Accounts = () => {
         }
     }
 
-    const connectedIds = accounts.map((account) => account.platform);
-
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-sm">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-xl font-medium text-slate-900 dark:text-white">Connected Accounts</h2>
-                    <p className="text-slate-500 dark:text-zinc-400 text-sm mt-0.5">{accounts.length} of {PLATFORMS.length} platforms connected.</p>
+                    <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Channels & Accounts</h2>
+                    <p className="text-slate-500 dark:text-zinc-400 text-sm mt-0.5">
+                        Connect your social media accounts to start scheduling posts ({accounts.length} of {PLATFORMS.length} connected)
+                    </p>
                 </div>
-                <button
-                    onClick={() => setShowPlatformPicker(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-linear-to-r from-orange-600 to-orange-500 hover:from-orange-500 hover:to-orange-400 text-white rounded-xl font-medium shadow-md shadow-orange-500/20 transition-all cursor-pointer">
-                    <PlusIcon className="size-4.5" />
-                    <span>Connect Account</span>
-                </button>
             </div>
 
-            {/* Platform picker modal */}
-            {showPlatformPicker &&
-                <PlatformPickerModel
-                    connectedIds={connectedIds}
-                    connecting={connecting}
-                    onClose={() => setShowPlatformPicker(false)}
-                    onConnect={handleConnect}
-                />
-            }
-
-
-            {/* Connected accounts List */}
-            <AccountList accounts={accounts} onDisconnect={handleDisconnect} />
+            {/* Channels List with direct Connect & Disconnect buttons */}
+            <AccountList
+                accounts={accounts}
+                connecting={connecting}
+                onConnect={handleConnect}
+                onDisconnect={handleDisconnect}
+            />
         </div>
     )
 }
