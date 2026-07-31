@@ -1,45 +1,106 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { PLATFORMS } from "../assets/assets";
-import { ArrowRightIcon, CalendarDaysIcon, CalendarIcon, ClockIcon, PlusCircleIcon, HistoryIcon, SendIcon, XIcon } from "lucide-react";
+import {
+    ArrowRightIcon,
+    CalendarDaysIcon,
+    CalendarIcon,
+    ClockIcon,
+    PlusCircleIcon,
+    HistoryIcon,
+    SendIcon,
+    XIcon,
+    UploadCloudIcon,
+    PlusIcon,
+    ImageIcon,
+    LinkIcon,
+} from "lucide-react";
 import { toast } from "sonner";
 import { api, API_PATHS } from "../api/axios";
 
 const Scheduler = () => {
+    const location = useLocation();
     const [activeTab, setActiveTab] = useState<"create" | "history">("create");
     const [posts, setPosts] = useState<any[]>([]);
     const [content, setContent] = useState("");
     const [scheduledDate, setScheduledDate] = useState("");
     const [scheduledTime, setScheduledTime] = useState("");
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
+
+    // Attached image URLs from Idea card or URL input
+    const [existingMediaUrls, setExistingMediaUrls] = useState<string[]>([]);
+    // Newly uploaded File object
     const [mediaFile, setMediaFile] = useState<File | null>(null);
+
+    const [imageUrlInput, setImageUrlInput] = useState("");
+    const [showUrlInput, setShowUrlInput] = useState(false);
     const [loading, setLoading] = useState(false);
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Read location state when navigated from Kanban / Ideas board
+    useEffect(() => {
+        if (location.state) {
+            const { content: stateContent, images, mediaUrl, title, description } = location.state as any;
+
+            if (stateContent) {
+                setContent(stateContent);
+            } else if (title) {
+                setContent(description ? `${title}\n\n${description}` : title);
+            }
+
+            const urls: string[] = [];
+            if (Array.isArray(images)) {
+                urls.push(...images.filter((img: any) => typeof img === "string" && img.trim().length > 0));
+            }
+            if (typeof mediaUrl === "string" && mediaUrl.trim() && !urls.includes(mediaUrl)) {
+                urls.push(mediaUrl);
+            }
+
+            if (urls.length > 0) {
+                setExistingMediaUrls(urls);
+            }
+        }
+    }, [location.state]);
 
     const fetchPosts = async () => {
         try {
-            const { data } = await api.get(API_PATHS.POSTS.GET_ALL)
-            setPosts(data)
+            const { data } = await api.get(API_PATHS.POSTS.GET_ALL);
+            setPosts(data);
         } catch (error: any) {
             toast.error(error?.response?.data?.message || error.message);
         }
-    }
+    };
 
     useEffect(() => {
         (async () => await fetchPosts())();
         const interval = setInterval(async () => await fetchPosts(), 10000);
-        return () => clearInterval(interval)
-    }, [])
+        return () => clearInterval(interval);
+    }, []);
 
-    const scheduled = posts.filter((p) => p.status === "scheduled")
-    const published = posts.filter((p) => p.status === "published")
+    const scheduled = posts.filter((p) => p.status === "scheduled");
+    const published = posts.filter((p) => p.status === "published");
 
     const togglePlatform = (id: string) => {
         setSelectedPlatforms((prev) =>
-            (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id])
-        )
-    }
+            prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
+        );
+    };
+
+    const handleRemoveExistingMedia = (index: number) => {
+        setExistingMediaUrls((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    const handleAddImageUrl = () => {
+        if (!imageUrlInput.trim()) return;
+        setExistingMediaUrls((prev) => [...prev, imageUrlInput.trim()]);
+        setImageUrlInput("");
+        setShowUrlInput(false);
+        toast.success("Image URL attached!");
+    };
 
     const handleSchedule = async (e: React.FormEvent) => {
-        e.preventDefault()
+        e.preventDefault();
         if (selectedPlatforms.length === 0) {
             toast.error("Select at least one platform");
             return;
@@ -48,35 +109,45 @@ const Scheduler = () => {
             toast.error("Select date and time");
             return;
         }
-        if (selectedPlatforms.includes('instagram') && !mediaFile) {
+        const hasMedia = mediaFile || existingMediaUrls.length > 0;
+        if (selectedPlatforms.includes("instagram") && !hasMedia) {
             toast.error("Instagram requires an image or video");
             return;
         }
+
         const scheduledFor = new Date(`${scheduledDate}T${scheduledTime}:00`).toISOString();
         const formData = new FormData();
         formData.append("content", content);
         formData.append("scheduledFor", scheduledFor);
         formData.append("status", "scheduled");
         formData.append("platforms", JSON.stringify(selectedPlatforms));
+
         if (mediaFile) {
             formData.append("media", mediaFile);
+        } else if (existingMediaUrls.length > 0) {
+            formData.append("mediaUrl", existingMediaUrls[0]);
+            formData.append("mediaType", "image");
         }
+
         setLoading(true);
         try {
-            await api.post(API_PATHS.POSTS.SCHEDULE, formData, { headers: { "Content-Type": "multipart/form-data" } })
-            toast.success("Post scheduled!");
+            await api.post(API_PATHS.POSTS.SCHEDULE, formData, {
+                headers: { "Content-Type": "multipart/form-data" },
+            });
+            toast.success("Post scheduled successfully!");
             setContent("");
             setScheduledDate("");
             setScheduledTime("");
             setSelectedPlatforms([]);
             setMediaFile(null);
+            setExistingMediaUrls([]);
             fetchPosts();
         } catch (error: any) {
-            toast.error(error?.response?.data?.message || error?.message || "Failed to schedule post")
+            toast.error(error?.response?.data?.message || error?.message || "Failed to schedule post");
         } finally {
             setLoading(false);
         }
-    }
+    };
 
     return (
         <div className="flex flex-col gap-6 w-full max-w-6xl mx-auto">
@@ -86,11 +157,10 @@ const Scheduler = () => {
                     <button
                         type="button"
                         onClick={() => setActiveTab("create")}
-                        className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-                            activeTab === "create"
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${activeTab === "create"
                                 ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
                                 : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
-                        }`}
+                            }`}
                     >
                         <PlusCircleIcon className="size-4" />
                         Create Post
@@ -98,11 +168,10 @@ const Scheduler = () => {
                     <button
                         type="button"
                         onClick={() => setActiveTab("history")}
-                        className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${
-                            activeTab === "history"
+                        className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${activeTab === "history"
                                 ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
                                 : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
-                        }`}
+                            }`}
                     >
                         <HistoryIcon className="size-4" />
                         Post History
@@ -166,31 +235,159 @@ const Scheduler = () => {
 
                                 {/* Right Column: Media Upload & Date/Time */}
                                 <div className="flex flex-col justify-between gap-3">
-                                    {/* Media Upload */}
+                                    {/* Media Upload Section */}
                                     <div className="flex-1 flex flex-col">
-                                        <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Media (optional)</label>
-                                        {mediaFile ? (
-                                            <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 flex-1 min-h-25">
-                                                {mediaFile.type.startsWith("image/")
-                                                    ? <img src={URL.createObjectURL(mediaFile)} alt="preview" className="w-full h-full min-h-25 max-h-35 object-cover" />
-                                                    : <video src={URL.createObjectURL(mediaFile)} className="w-full h-full min-h-25 max-h-35 object-cover" controls />
-                                                }
-                                                <button type="button" onClick={() => setMediaFile(null)} className="absolute top-2 right-2 size-6 bg-slate-900/70 hover:bg-slate-900/90 text-white rounded-full flex items-center justify-center transition-colors cursor-pointer">
-                                                    <XIcon className="size-3.5" />
-                                                </button>
+                                        <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
+                                            Media Attachments
+                                        </label>
+
+                                        {/* Display Pre-attached URLs and Newly Selected Files */}
+                                        {(existingMediaUrls.length > 0 || mediaFile) ? (
+                                            <div className="space-y-2 flex-1">
+                                                <div className="grid grid-cols-3 gap-2">
+                                                    {/* Pre-existing / Loaded Image URLs */}
+                                                    {existingMediaUrls.map((url, i) => (
+                                                        <div key={i} className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 aspect-video shadow-xs">
+                                                            <img src={url} alt="" className="w-full h-full object-cover" />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemoveExistingMedia(i)}
+                                                                className="absolute top-1 right-1 p-1 bg-slate-900/80 hover:bg-red-600 text-white rounded-full transition-colors cursor-pointer"
+                                                                title="Remove image"
+                                                            >
+                                                                <XIcon className="size-3" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+
+                                                    {/* Newly Uploaded File */}
+                                                    {mediaFile && (
+                                                        <div className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 aspect-video shadow-xs">
+                                                            {mediaFile.type.startsWith("image/") ? (
+                                                                <img src={URL.createObjectURL(mediaFile)} alt="preview" className="w-full h-full object-cover" />
+                                                            ) : (
+                                                                <video src={URL.createObjectURL(mediaFile)} className="w-full h-full object-cover" controls />
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setMediaFile(null)}
+                                                                className="absolute top-1 right-1 p-1 bg-slate-900/80 hover:bg-red-600 text-white rounded-full transition-colors cursor-pointer"
+                                                                title="Remove file"
+                                                            >
+                                                                <XIcon className="size-3" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Action buttons to add MORE media */}
+                                                <div className="flex items-center gap-2 pt-1">
+                                                    <input
+                                                        type="file"
+                                                        ref={fileInputRef}
+                                                        accept="image/*,video/*"
+                                                        className="hidden"
+                                                        onChange={(e) => e.target.files?.[0] && setMediaFile(e.target.files[0])}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-colors cursor-pointer"
+                                                    >
+                                                        <PlusIcon className="size-3.5" />
+                                                        <span>Add File</span>
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowUrlInput(!showUrlInput)}
+                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-colors cursor-pointer"
+                                                    >
+                                                        <ImageIcon className="size-3.5" />
+                                                        <span>Add URL</span>
+                                                    </button>
+                                                </div>
+
+                                                {showUrlInput && (
+                                                    <div className="flex gap-2 pt-1">
+                                                        <input
+                                                            type="url"
+                                                            placeholder="Paste image URL..."
+                                                            value={imageUrlInput}
+                                                            onChange={(e) => setImageUrlInput(e.target.value)}
+                                                            className="flex-1 px-3 py-1 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 text-xs text-slate-900 dark:text-white outline-none"
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleAddImageUrl}
+                                                            className="px-3 py-1 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors cursor-pointer"
+                                                        >
+                                                            Attach
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         ) : (
-                                            <label className="flex-1 flex items-center justify-center gap-2 py-4 px-4 border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-xl cursor-pointer hover:border-red-300 dark:hover:border-red-800/60 hover:bg-red-50/30 dark:hover:bg-red-950/20 transition-all group min-h-25">
-                                                <span className="text-xs font-medium text-slate-500 dark:text-zinc-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
-                                                    Click to upload image or video
-                                                </span>
-                                                <input
-                                                    type="file"
-                                                    accept="image/*,video/*"
-                                                    className="hidden"
-                                                    onChange={(e) => e.target.files?.[0] && setMediaFile(e.target.files[0])}
-                                                />
-                                            </label>
+                                            /* Empty state drop area */
+                                            <div className="flex-1 flex flex-col gap-2">
+                                                <label className="flex-1 flex flex-col items-center justify-center gap-1.5 py-4 px-4 border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-xl cursor-pointer hover:border-red-300 dark:hover:border-red-800/60 hover:bg-red-50/30 dark:hover:bg-red-950/20 transition-all group min-h-25">
+                                                    <UploadCloudIcon className="size-5 text-slate-400 group-hover:text-red-500 transition-colors" />
+                                                    <span className="text-xs font-medium text-slate-500 dark:text-zinc-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                                                        Click to upload image or video
+                                                    </span>
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*,video/*"
+                                                        className="hidden"
+                                                        onChange={(e) => e.target.files?.[0] && setMediaFile(e.target.files[0])}
+                                                    />
+                                                </label>
+
+                                                {!showUrlInput ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setShowUrlInput(true)}
+                                                        className="w-full flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl border border-dashed border-slate-300/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/40 hover:bg-slate-100 dark:hover:bg-zinc-800/80 hover:border-slate-400 dark:hover:border-zinc-700 text-xs font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer group shadow-2xs"
+                                                    >
+                                                        <div className="size-5 rounded-lg bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-400 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
+                                                            <LinkIcon className="size-3" />
+                                                        </div>
+                                                        <span>Or paste direct image URL</span>
+                                                    </button>
+                                                ) : (
+                                                    <div className="flex items-center gap-2 p-1.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/90 shadow-inner transition-all animate-in fade-in duration-150">
+                                                        <input
+                                                            type="url"
+                                                            placeholder="Paste image URL (e.g. https://...)"
+                                                            value={imageUrlInput}
+                                                            onChange={(e) => setImageUrlInput(e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === "Enter") {
+                                                                    e.preventDefault();
+                                                                    handleAddImageUrl();
+                                                                }
+                                                            }}
+                                                            className="flex-1 px-2 py-1 bg-transparent text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 outline-none border-none min-w-0"
+                                                            autoFocus
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={handleAddImageUrl}
+                                                            disabled={!imageUrlInput.trim()}
+                                                            className="px-3 py-1 rounded-lg bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500 text-white text-xs font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs shrink-0"
+                                                        >
+                                                            Attach
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setShowUrlInput(false)}
+                                                            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors cursor-pointer shrink-0"
+                                                        >
+                                                            <XIcon className="size-3.5" />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
                                     </div>
 

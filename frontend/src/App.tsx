@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Accounts from "./pages/Accounts";
 import Scheduler from "./pages/Scheduler";
 import AIComposer from "./pages/AIComposer";
+import Ideas from "./pages/Ideas";
 import ChangePassword from "./pages/ChangePassword";
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
           <Route path="/accounts" element={<Accounts />} />
           <Route path="/schedule" element={<Scheduler />} />
           <Route path="/ai-composer" element={<AIComposer />} />
+          <Route path="/ideas" element={<Ideas />} />
           <Route path="/change-password" element={<ChangePassword />} />
         </Route>
       </Routes>

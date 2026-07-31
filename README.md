@@ -1,6 +1,6 @@
 # 🚀 Social AI — Social Media Scheduler & AI Content Generator (MERN Stack)
 
-A modern, production-ready, full-stack social media management, AI text composer, AI image generation, and post-scheduling platform. Built with **Node.js**, **Express 5**, **React 19**, **TypeScript**, **MongoDB**, **Vite**, **Tailwind CSS v4**, **Google Gemini AI**, **Cloudflare Workers AI**, **Pollinations.ai**, and **Cloudinary**.
+A modern, production-ready, full-stack social media management, content ideas Kanban board, AI text composer, AI image generator, and automated post-scheduling platform. Built with **Node.js**, **Express 5**, **React 19**, **TypeScript**, **MongoDB**, **Vite**, **Tailwind CSS v4**, **Google Gemini AI**, **Cloudflare Workers AI**, **Pollinations.ai**, and **Cloudinary**.
 
 ---
 
@@ -13,6 +13,7 @@ A modern, production-ready, full-stack social media management, AI text composer
 - [Prerequisites](#-prerequisites)
 - [Environment Variables](#-environment-variables)
 - [Installation & Local Setup](#-installation--local-setup)
+- [Application Views & Navigation](#-application-views--navigation)
 - [Database Models](#-database-models)
 - [API Endpoints Reference](#-api-endpoints-reference)
 - [AI Capabilities & Fallback Chains](#-ai-capabilities--fallback-chains)
@@ -25,20 +26,26 @@ A modern, production-ready, full-stack social media management, AI text composer
 
 ## 🌟 Overview
 
-**Social AI** allows creators, marketing teams, and businesses to write, generate, schedule, and automate posts across multiple social channels simultaneously (Twitter/X, LinkedIn, Facebook, Instagram, etc.).
+**Social AI** empowers content creators, marketing teams, and businesses to brainstorm, generate, schedule, and automate posts across multiple social channels (Twitter/X, LinkedIn, Facebook, Instagram, etc.).
 
-It features a **dual AI engine**:
-1. **AI Text Generation**: Powered by **Google Gemini** (`gemini-2.0-flash`) for crafting engaging 100-200 word captions, tone-adapted copy, and content-aware visual prompts.
+It features an integrated **Content Ideas Kanban Board** for idea management alongside a **dual AI engine**:
+1. **AI Text Generation**: Powered by **Google Gemini** (`gemini-2.0-flash`) for crafting engaging 100–200 word captions, tone-adapted copy, and content-aware visual prompts.
 2. **AI Image Generation**: A 2-tier fallback chain using **Cloudflare Workers AI** (`flux-1-schnell`) and **Pollinations.ai**, automatically uploading generated images to **Cloudinary** for permanent CDN hosting.
 
-An automated background worker (`node-cron`) checks every minute and publishes scheduled posts to connected accounts via the **Zernio API**.
+An automated background worker (`node-cron`) runs every minute, publishing scheduled posts to connected accounts via the **Zernio API**.
 
 ---
 
 ## ✨ Key Features
 
 - 🔐 **Authentication & Security**: JWT-based session security, `bcrypt` password hashing, Google OAuth 2.0 integration, and rate limiting via `express-rate-limit`.
-- 🤖 **AI-Powered Content Composer**: Native integration with `@google/genai` for generating 100-200 word posts with hashtags, hooks, and CTAs across multiple tones (`Professional`, `Creative`, `Funny`, `Minimalist`, `Excited`).
+- 💡 **Ideas Kanban Board & AI Brainstorming**:
+  - Interactive multi-column Kanban layout (`Backlog`, `In Progress`, `Ready to Post`).
+  - Move ideas across columns with ease.
+  - **AI Idea Generator Popover**: Instant topic & hook brainstorming powered by Google Gemini.
+  - Create, edit, and delete ideas with cover images and tags.
+  - 1-click transition from an Idea into a scheduled post or AI draft.
+- 🤖 **AI-Powered Content Composer**: Native integration with `@google/genai` for generating 100–200 word posts with hashtags, hooks, and CTAs across multiple tones (`Professional`, `Creative`, `Funny`, `Minimalist`, `Excited`).
 - 🎨 **Multi-Tier AI Image Generator**:
   - **Tier 1 (Primary)**: Cloudflare Workers AI (`@cf/black-forest-labs/flux-1-schnell`)
   - **Tier 2 (Fallback)**: Pollinations.ai with random seeds
@@ -46,7 +53,7 @@ An automated background worker (`node-cron`) checks every minute and publishes s
 - 📅 **Post Scheduler**: Schedule text, images, and videos with precise date and time pickers.
 - 🔌 **Social Channel Connection**: OAuth connection for Twitter/X, LinkedIn, Facebook, and Instagram powered by the Zernio SDK (`@zernio/node`).
 - ⏱️ **Automated Background Dispatcher**: Minute-by-minute automated post dispatcher powered by `node-cron`.
-- 📊 **Activity Auditing**: Real-time tracking of published posts, connected accounts, and system event history.
+- 📊 **Activity Auditing & Analytics**: Real-time tracking of published posts, connected accounts, and system event history.
 - 🎨 **Modern Dark/Light UI**: Built with React 19, TypeScript, Tailwind CSS v4, Lucide Icons, and Sonner toast notifications.
 
 ---
@@ -135,6 +142,7 @@ social-media_scheduler_fullstack_mern/
 │   │   │   ├── ChangePassword.tsx  # Account security settings
 │   │   │   ├── Dashboard.tsx       # Analytics & activity feed
 │   │   │   ├── Home.tsx            # Public landing page
+│   │   │   ├── Ideas.tsx           # Ideas Kanban Board & AI Brainstorming
 │   │   │   ├── Login.tsx           # Auth page (Email + Google OAuth)
 │   │   │   └── Scheduler.tsx       # Post composer & calendar queue
 │   │   ├── App.tsx                 # Top-level routing & layout wrapper
@@ -247,6 +255,21 @@ npm run dev
 
 ---
 
+## 🗺️ Application Views & Navigation
+
+| Route | View | Description |
+| :--- | :--- | :--- |
+| `/` | **Landing Page** | Public showcase highlighting features, integrations, and login CTA. |
+| `/login` | **Authentication** | Secure email/password login, account registration, and Google OAuth 2.0. |
+| `/dashboard` | **Dashboard** | Analytics metrics, upcoming post queue summary, and activity feed. |
+| `/accounts` | **Social Accounts** | Connect and manage Twitter/X, LinkedIn, Facebook, and Instagram channels. |
+| `/schedule` | **Post Scheduler** | Interactive calendar/list composer to schedule posts with image/video attachments. |
+| `/ideas` | **Ideas Kanban** | Interactive Kanban board (`Backlog`, `In Progress`, `Ready to Post`) with AI brainstorming popover. |
+| `/ai-composer` | **AI Composer** | Full-fledged AI workspace for generating text captions and Flux AI images. |
+| `/change-password` | **Account Settings** | Security preferences and password management. |
+
+---
+
 ## 🗄️ Database Models
 
 ### 1. **User Model** (`User.ts`)
@@ -333,7 +356,7 @@ npm run dev
 
 ### 1. **Text Generation Engine**
 - **Model**: `gemini-2.0-flash` (via `@google/genai`)
-- **Output Constraints**: Generates comprehensive 100-200 word social posts with hooks, takeaways, CTAs, and 3-5 trending hashtags.
+- **Output Constraints**: Generates comprehensive 100–200 word social posts with hooks, takeaways, CTAs, and 3-5 trending hashtags.
 - **Fallback Flow**: `gemini-2.0-flash` → `gemini-1.5-flash` → Dynamic Topic Template Engine.
 
 ### 2. **Image Generation Engine**

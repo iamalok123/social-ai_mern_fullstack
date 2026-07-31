@@ -9,6 +9,7 @@ const pageTitle: Record<string, string> = {
     "/accounts": "Social Accounts",
     "/schedule": "Post Scheduler",
     "/ai-composer": "AI Composer",
+    "/ideas": "Content Ideas",
     "/change-password": "Change Password",
 }
 
@@ -67,7 +68,7 @@ const Layout = () => {
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-auto p-4 sm:p-6 md:p-8 xl:p-12 bg-slate-100 dark:bg-black text-slate-900 dark:text-zinc-100 transition-colors">
+                <main className="flex-1 overflow-auto p-4 sm:p-6 md:p-6 xl:p-6 bg-slate-100 dark:bg-black text-slate-900 dark:text-zinc-100 transition-colors">
                     <Outlet />
                 </main>
 

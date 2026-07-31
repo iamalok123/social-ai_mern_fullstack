@@ -1,4 +1,4 @@
-import { CalendarDaysIcon, LayoutDashboardIcon, LogOutIcon, UsersIcon, Wand2Icon, XIcon, KeyRoundIcon, Menu } from "lucide-react";
+import { CalendarDaysIcon, LayoutDashboardIcon, LogOutIcon, UsersIcon, Wand2Icon, XIcon, KeyRoundIcon, Menu, LightbulbIcon } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
         { name: "Dashboard", icon: LayoutDashboardIcon, path: "/dashboard" },
         { name: "Accounts", icon: UsersIcon, path: "/accounts" },
         { name: "Scheduler", icon: CalendarDaysIcon, path: "/schedule" },
+        { name: "Ideas", icon: LightbulbIcon, path: "/ideas" },
         { name: "AI Composer", icon: Wand2Icon, path: "/ai-composer" },
     ];
 
@@ -22,7 +23,12 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
     const { logout, user } = useAuth();
 
     const [showUserMenu, setShowUserMenu] = useState(false);
+    const [imgError, setImgError] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        setImgError(false);
+    }, [user?.picture]);
 
     // Close menu when clicking outside
     useEffect(() => {
@@ -160,10 +166,12 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
                     className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800/60 transition-colors cursor-pointer group"
                     title="User account settings"
                 >
-                    {user?.picture ? (
+                    {user?.picture && !imgError ? (
                         <img
                             src={user.picture}
-                            alt={user.name}
+                            alt={user.name || "User"}
+                            referrerPolicy="no-referrer"
+                            onError={() => setImgError(true)}
                             className="size-8.5 rounded-full object-cover shrink-0 border border-slate-200 dark:border-zinc-700 shadow-xs"
                         />
                     ) : (

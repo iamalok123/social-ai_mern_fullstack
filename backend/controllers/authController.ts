@@ -48,6 +48,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
                 _id: user._id,
                 name: user.name,
                 email: user.email,
+                picture: user.picture,
                 authProvider: user.authProvider || "email",
                 token: generateToken(user._id.toString())
             });
@@ -79,6 +80,7 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
                 _id: user._id,
                 name: user.name,
                 email: user.email,
+                picture: user.picture,
                 authProvider: user.authProvider || "email",
                 token: generateToken(user._id.toString())
             });

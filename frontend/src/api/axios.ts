@@ -31,8 +31,25 @@ export const API_PATHS = {
     ACTIVITY: {
         GET_ALL: "/api/activity",
     },
+
+    IDEAS: {
+        GET_ALL: "/api/ideas",
+        CREATE: "/api/ideas",
+        UPDATE: (id: string) => `/api/ideas/${id}`,
+        DELETE: (id: string) => `/api/ideas/${id}`,
+        UPLOAD_IMAGE: "/api/ideas/upload",
+        GENERATE_AI: "/api/ideas/generate-ai",
+    },
 };
 
 export const api = axios.create({
     baseURL: BASE_URL,
+});
+
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
 });

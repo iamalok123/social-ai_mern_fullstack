@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { PLATFORMS } from "../assets/assets";
 import { ArrowRightIcon, CalendarIcon, ClockIcon, HistoryIcon, Loader2Icon, TimerIcon, Wand2Icon, XIcon, ChevronDownIcon } from "lucide-react";
 import { toast } from "sonner";
 import { api, API_PATHS } from "../api/axios";
 
 const AIComposer = () => {
+    const location = useLocation();
     const [prompt, setPrompt] = useState("");
     const [tone, setTone] = useState("Professional");
     const [generateImage, setGenerateImage] = useState(true);
@@ -13,6 +15,18 @@ const AIComposer = () => {
 
     const [isToneDropdownOpen, setIsToneDropdownOpen] = useState(false);
     const toneDropdownRef = useRef<HTMLDivElement>(null);
+
+    // Read location state when navigated from Kanban / Ideas board
+    useEffect(() => {
+        if (location.state) {
+            const { prompt: statePrompt, title, description } = location.state as any;
+            if (statePrompt) {
+                setPrompt(statePrompt);
+            } else if (title) {
+                setPrompt(description ? `${title}\n\n${description}` : title);
+            }
+        }
+    }, [location.state]);
 
     // Close tone dropdown when clicking outside
     useEffect(() => {
