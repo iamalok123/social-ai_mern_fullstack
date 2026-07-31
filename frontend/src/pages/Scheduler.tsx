@@ -11,9 +11,7 @@ import {
     SendIcon,
     XIcon,
     UploadCloudIcon,
-    PlusIcon,
-    ImageIcon,
-    LinkIcon,
+    PlusIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, API_PATHS } from "../api/axios";
@@ -32,8 +30,6 @@ const Scheduler = () => {
     // Newly uploaded File object
     const [mediaFile, setMediaFile] = useState<File | null>(null);
 
-    const [imageUrlInput, setImageUrlInput] = useState("");
-    const [showUrlInput, setShowUrlInput] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -91,13 +87,7 @@ const Scheduler = () => {
         setExistingMediaUrls((prev) => prev.filter((_, i) => i !== index));
     };
 
-    const handleAddImageUrl = () => {
-        if (!imageUrlInput.trim()) return;
-        setExistingMediaUrls((prev) => [...prev, imageUrlInput.trim()]);
-        setImageUrlInput("");
-        setShowUrlInput(false);
-        toast.success("Image URL attached!");
-    };
+
 
     const handleSchedule = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -298,34 +288,7 @@ const Scheduler = () => {
                                                         <span>Add File</span>
                                                     </button>
 
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setShowUrlInput(!showUrlInput)}
-                                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-colors cursor-pointer"
-                                                    >
-                                                        <ImageIcon className="size-3.5" />
-                                                        <span>Add URL</span>
-                                                    </button>
                                                 </div>
-
-                                                {showUrlInput && (
-                                                    <div className="flex gap-2 pt-1">
-                                                        <input
-                                                            type="url"
-                                                            placeholder="Paste image URL..."
-                                                            value={imageUrlInput}
-                                                            onChange={(e) => setImageUrlInput(e.target.value)}
-                                                            className="flex-1 px-3 py-1 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 text-xs text-slate-900 dark:text-white outline-none"
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={handleAddImageUrl}
-                                                            className="px-3 py-1 rounded-lg bg-red-500 text-white text-xs font-semibold hover:bg-red-600 transition-colors cursor-pointer"
-                                                        >
-                                                            Attach
-                                                        </button>
-                                                    </div>
-                                                )}
                                             </div>
                                         ) : (
                                             /* Empty state drop area */
@@ -343,50 +306,7 @@ const Scheduler = () => {
                                                     />
                                                 </label>
 
-                                                {!showUrlInput ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setShowUrlInput(true)}
-                                                        className="w-full flex items-center justify-center gap-2 py-2 px-3.5 rounded-xl border border-dashed border-slate-300/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/40 hover:bg-slate-100 dark:hover:bg-zinc-800/80 hover:border-slate-400 dark:hover:border-zinc-700 text-xs font-medium text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer group shadow-2xs"
-                                                    >
-                                                        <div className="size-5 rounded-lg bg-red-500/10 dark:bg-red-500/15 text-red-600 dark:text-red-400 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
-                                                            <LinkIcon className="size-3" />
-                                                        </div>
-                                                        <span>Or paste direct image URL</span>
-                                                    </button>
-                                                ) : (
-                                                    <div className="flex items-center gap-2 p-1.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/90 shadow-inner transition-all animate-in fade-in duration-150">
-                                                        <input
-                                                            type="url"
-                                                            placeholder="Paste image URL (e.g. https://...)"
-                                                            value={imageUrlInput}
-                                                            onChange={(e) => setImageUrlInput(e.target.value)}
-                                                            onKeyDown={(e) => {
-                                                                if (e.key === "Enter") {
-                                                                    e.preventDefault();
-                                                                    handleAddImageUrl();
-                                                                }
-                                                            }}
-                                                            className="flex-1 px-2 py-1 bg-transparent text-xs text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 outline-none border-none min-w-0"
-                                                            autoFocus
-                                                        />
-                                                        <button
-                                                            type="button"
-                                                            onClick={handleAddImageUrl}
-                                                            disabled={!imageUrlInput.trim()}
-                                                            className="px-3 py-1 rounded-lg bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500 text-white text-xs font-semibold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-2xs shrink-0"
-                                                        >
-                                                            Attach
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setShowUrlInput(false)}
-                                                            className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 transition-colors cursor-pointer shrink-0"
-                                                        >
-                                                            <XIcon className="size-3.5" />
-                                                        </button>
-                                                    </div>
-                                                )}
+
                                             </div>
                                         )}
                                     </div>

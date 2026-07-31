@@ -24,7 +24,6 @@ export const IdeaDialogModal: React.FC<IdeaDialogModalProps> = ({
     const [title, setTitle] = useState(idea?.title || "");
     const [description, setDescription] = useState(idea?.description || "");
     const [selectedColumn, setSelectedColumn] = useState(idea?.columnId || defaultColumnId);
-    const [imageUrlInput, setImageUrlInput] = useState("");
     const [images, setImages] = useState<string[]>(idea?.images || []);
     const [tagsInput, setTagsInput] = useState((idea?.tags || []).join(", "));
     const [isUploading, setIsUploading] = useState(false);
@@ -33,12 +32,6 @@ export const IdeaDialogModal: React.FC<IdeaDialogModalProps> = ({
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     if (!open) return null;
-
-    const handleAddImage = () => {
-        if (!imageUrlInput.trim()) return;
-        setImages([...images, imageUrlInput.trim()]);
-        setImageUrlInput("");
-    };
 
     const processFile = async (file: File) => {
         if (!file.type.startsWith("image/")) {
@@ -259,30 +252,7 @@ export const IdeaDialogModal: React.FC<IdeaDialogModalProps> = ({
                                 )}
                             </div>
 
-                            {/* Direct URL Input */}
-                            <div className="flex gap-2">
-                                <input
-                                    type="url"
-                                    placeholder="Or paste direct image URL..."
-                                    value={imageUrlInput}
-                                    onChange={(e) => setImageUrlInput(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                            e.preventDefault();
-                                            handleAddImage();
-                                        }
-                                    }}
-                                    className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/60 text-xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-orange-500/40 focus:border-orange-500/60 transition-all min-w-0"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={handleAddImage}
-                                    disabled={!imageUrlInput.trim()}
-                                    className="px-3.5 py-1.5 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-orange-500 hover:text-white text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-all cursor-pointer disabled:opacity-40 disabled:hover:bg-slate-100 dark:disabled:hover:bg-zinc-800 shrink-0"
-                                >
-                                    Add URL
-                                </button>
-                            </div>
+
 
                             {/* Image Previews */}
                             {images.length > 0 && (
