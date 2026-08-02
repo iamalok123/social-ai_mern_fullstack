@@ -2,22 +2,23 @@ import { cloudinary } from "../config/cloudinary.js";
 
 /**
  * Generates a unique AI image with a 2-tier fallback chain:
- * 1. Cloudflare Workers AI - flux-1-schnell (primary: fast, high quality, ~230 free images/day)
+ * 1. Cloudflare Workers AI (primary: configurable via CLOUDFLARE_IMAGE_MODEL env)
  * 2. Pollinations.ai (fallback: unlimited free, uploaded to Cloudinary or raw URL as last resort)
  * Returns a Cloudinary-hosted URL.
  */
 export async function generateAIImage(imagePrompt: string): Promise<string> {
     const seed = Math.floor(Math.random() * 10000000);
 
-    // --- Tier 1: Cloudflare Workers AI (flux-1-schnell) ---
+    // --- Tier 1: Cloudflare Workers AI ---
     try {
         const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
         const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+        const model = process.env.CLOUDFLARE_IMAGE_MODEL || "@cf/leonardo/lucid-origin";
 
         if (accountId && apiToken) {
-            console.log(`🎨 [IMAGE GEN] Requesting image via Cloudflare Workers AI (@cf/black-forest-labs/flux-1-schnell)...`);
+            console.log(`🎨 [IMAGE GEN] Requesting image via Cloudflare Workers AI (${model})...`);
             const cfResponse = await fetch(
-                `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/@cf/black-forest-labs/flux-1-schnell`,
+                `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`,
                 {
                     method: "POST",
                     headers: {
@@ -33,7 +34,7 @@ export async function generateAIImage(imagePrompt: string): Promise<string> {
                 if (cfData?.result?.image) {
                     const dataUri = `data:image/jpeg;base64,${cfData.result.image}`;
                     const uploadResult = await cloudinary.uploader.upload(dataUri, { folder: "ai-generations" });
-                    console.log(`✅ [IMAGE GEN PROVIDER] Generated via Cloudflare Workers AI (flux-1-schnell) -> Cloudinary URL: ${uploadResult.secure_url}`);
+                    console.log(`✅ [IMAGE GEN PROVIDER] Generated via Cloudflare Workers AI (${model}) -> Cloudinary URL: ${uploadResult.secure_url}`);
                     return uploadResult.secure_url;
                 }
             } else {

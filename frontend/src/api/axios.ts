@@ -26,6 +26,7 @@ export const API_PATHS = {
         SCHEDULE: "/api/posts",
         GENERATE: "/api/posts/generate",
         GET_GENERATIONS: "/api/posts/generations",
+        DELETE_GENERATION: (id: string) => `/api/posts/generations/${id}`,
     },
 
     ACTIVITY: {

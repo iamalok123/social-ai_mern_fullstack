@@ -68,7 +68,7 @@ Format your output STRICTLY as a valid JSON object with keys "content" and "imag
                 const rawText = textResponse.text || "";
                 const jsonMatch = rawText.match(/\{[\s\S]*\}/);
                 const data = jsonMatch ? JSON.parse(jsonMatch[0]) : { content: rawText, imagePrompt: prompt };
-                
+
                 if (data.content) {
                     content = data.content;
                     imagePrompt = data.imagePrompt || prompt;
@@ -85,7 +85,7 @@ Format your output STRICTLY as a valid JSON object with keys "content" and "imag
             console.log(`✅ [TEXT GEN PROVIDER] Generated via Dynamic Fallback Engine (Gemini API limits reached)`);
             const formattedTopic = prompt.trim();
             const capitalizedTopic = formattedTopic.charAt(0).toUpperCase() + formattedTopic.slice(1);
-            
+
             content = `🚀 Comprehensive Guide & Deep Dive: ${capitalizedTopic}\n\nIn today's fast-evolving digital landscape, mastering ${formattedTopic} has become an essential strategy for creators, professionals, and forward-thinking teams. Whether you are building new solutions from scratch or refining your existing workflows, taking a structured approach to this topic drives substantial, measurable impact.\n\nKey Strategic Pillars for Success:\n• Strategic Vision: Align your core goals with actionable steps designed specifically around ${formattedTopic}.\n• Modern Frameworks & Tools: Implement cutting-edge automation and proven industry practices to eliminate operational friction.\n• Continuous Optimization: Measure key metrics, gather feedback, and continuously iterate to sustain long-term growth.\n\nBy taking proactive initiative on ${formattedTopic}, you position yourself for long-term productivity and innovation in your field.\n\n💬 What is your biggest challenge or top tip when working on ${formattedTopic}? We would love to hear your insights in the comments below!\n\n#${formattedTopic.replace(/[^a-zA-Z0-9]/g, "") || "Tech"} #${tone || "Professional"} #Innovation #GrowthMindset #Leadership #FutureOfWork`;
 
             imagePrompt = `A visually breathtaking cinematic concept illustration representing ${formattedTopic}. Rendered in a high-detail 3D artistic style featuring dynamic ambient studio lighting, rich colors, and abstract futuristic visual elements that directly capture the spirit of ${formattedTopic}.`;
@@ -128,6 +128,58 @@ export const getGenerations = async (req: AuthRequest, res: Response): Promise<v
         res.status(500).json({ message: error?.message || "Server error" });
     }
 }
+
+/**
+ * Helper to extract Cloudinary public_id from a secure_url
+ * e.g. "https://res.cloudinary.com/cloud_name/image/upload/v12345/ai-generations/abc.jpg" => "ai-generations/abc"
+ */
+function extractCloudinaryPublicId(url: string): string | null {
+    if (!url || !url.includes("cloudinary.com")) return null;
+    try {
+        const parts = url.split("/upload/");
+        if (parts.length < 2) return null;
+        const pathAfterUpload = parts[1];
+        const pathWithoutVersion = pathAfterUpload.replace(/^v\d+\//, "");
+        const lastDotIndex = pathWithoutVersion.lastIndexOf(".");
+        return lastDotIndex !== -1 ? pathWithoutVersion.substring(0, lastDotIndex) : pathWithoutVersion;
+    } catch {
+        return null;
+    }
+}
+
+// Delete generation
+// DELETE /api/posts/generations/:id
+export const deleteGeneration = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const generation = await Generation.findOne({ _id: id, user: req.user._id });
+
+        if (!generation) {
+            res.status(404).json({ message: "Generation not found" });
+            return;
+        }
+
+        // Delete associated image from Cloudinary if hosted on Cloudinary
+        if (generation.mediaUrl) {
+            const publicId = extractCloudinaryPublicId(generation.mediaUrl);
+            if (publicId) {
+                try {
+                    const cloudRes = await cloudinary.uploader.destroy(publicId);
+                    console.log(`🗑️ [CLOUDINARY DELETED] Public ID: ${publicId}, Result:`, cloudRes);
+                } catch (cloudErr: any) {
+                    console.warn(`⚠️ [CLOUDINARY DELETE ERROR] Failed to delete ${publicId}:`, cloudErr?.message || cloudErr);
+                }
+            }
+        }
+
+        await Generation.deleteOne({ _id: id });
+        console.log(`🗑️ [GENERATION DELETED] Generation ID: ${id}`);
+        res.json({ message: "Generation deleted successfully", id });
+    } catch (error: any) {
+        console.error("Delete Generation Error:", error);
+        res.status(500).json({ message: error?.message || "Failed to delete generation" });
+    }
+};
 
 
 // Get posts

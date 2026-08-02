@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { PLATFORMS } from "../assets/assets";
-import { ArrowRightIcon, CalendarIcon, ClockIcon, HistoryIcon, Loader2Icon, TimerIcon, Wand2Icon, XIcon, ChevronDownIcon } from "lucide-react";
+import { ArrowRightIcon, CalendarIcon, ClockIcon, HistoryIcon, Loader2Icon, TimerIcon, Wand2Icon, XIcon, ChevronDownIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { api, API_PATHS } from "../api/axios";
 
@@ -12,6 +12,7 @@ const AIComposer = () => {
     const [generateImage, setGenerateImage] = useState(true);
     const [loading, setLoading] = useState(false);
     const [generations, setGenerations] = useState<any[]>([]);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const [isToneDropdownOpen, setIsToneDropdownOpen] = useState(false);
     const toneDropdownRef = useRef<HTMLDivElement>(null);
@@ -52,6 +53,22 @@ const AIComposer = () => {
             setGenerations(data)
         } catch (error: any) {
             toast.error(error?.response?.data?.message || error?.message);
+        }
+    }
+
+    const handleDeleteGeneration = async (id: string) => {
+        setDeletingId(id);
+        try {
+            await api.delete(API_PATHS.POSTS.DELETE_GENERATION(id));
+            setGenerations((prev) => prev.filter((gen) => gen._id !== id));
+            if (activeScheduler?._id === id) {
+                setActiveScheduler(null);
+            }
+            toast.success("Generation deleted successfully");
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || "Failed to delete generation");
+        } finally {
+            setDeletingId(null);
         }
     }
 
@@ -224,7 +241,21 @@ const AIComposer = () => {
 
                                 <div className="flex items-center justify-between">
                                     <span className="text-xs text-slate-400 dark:text-zinc-500 uppercase tracking-widest">{new Date(gen.createdAt).toLocaleDateString()}</span>
-                                    <span className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50 px-2 py-0.5 rounded-md font-medium">{gen.tone}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-100 dark:border-red-900/50 px-2 py-0.5 rounded-md font-medium">{gen.tone}</span>
+                                        <button
+                                            onClick={() => handleDeleteGeneration(gen._id)}
+                                            disabled={deletingId === gen._id}
+                                            title="Delete generation & media asset"
+                                            className="p-1 text-slate-400 hover:text-red-500 dark:text-zinc-500 dark:hover:text-red-400 rounded-md hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer disabled:opacity-50"
+                                        >
+                                            {deletingId === gen._id ? (
+                                                <Loader2Icon className="size-3.5 animate-spin text-red-500" />
+                                            ) : (
+                                                <Trash2Icon className="size-3.5" />
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <p className="flex-1 text-sm text-slate-700 dark:text-zinc-300 line-clamp-3 leading-relaxed">

@@ -30,7 +30,7 @@ A modern, production-ready, full-stack social media management, content ideas Ka
 
 It features an integrated **Content Ideas Kanban Board** for idea management alongside a **dual AI engine**:
 1. **AI Text Generation**: Powered by **Google Gemini** (`gemini-2.0-flash`) for crafting engaging 100–200 word captions, tone-adapted copy, and content-aware visual prompts.
-2. **AI Image Generation**: A 2-tier fallback chain using **Cloudflare Workers AI** (`flux-1-schnell`) and **Pollinations.ai**, automatically uploading generated images to **Cloudinary** for permanent CDN hosting.
+2. **AI Image Generation**: A 2-tier fallback chain using **Cloudflare Workers AI** (`@cf/leonardo/lucid-origin`, configurable via `CLOUDFLARE_IMAGE_MODEL`) and **Pollinations.ai**, automatically uploading generated images to **Cloudinary** for permanent CDN hosting.
 
 An automated background worker (`node-cron`) runs every minute, publishing scheduled posts to connected accounts via the **Zernio API**.
 
@@ -47,7 +47,7 @@ An automated background worker (`node-cron`) runs every minute, publishing sched
   - 1-click transition from an Idea into a scheduled post or AI draft.
 - 🤖 **AI-Powered Content Composer**: Native integration with `@google/genai` for generating 100–200 word posts with hashtags, hooks, and CTAs across multiple tones (`Professional`, `Creative`, `Funny`, `Minimalist`, `Excited`).
 - 🎨 **Multi-Tier AI Image Generator**:
-  - **Tier 1 (Primary)**: Cloudflare Workers AI (`@cf/black-forest-labs/flux-1-schnell`)
+  - **Tier 1 (Primary)**: Cloudflare Workers AI (`@cf/leonardo/lucid-origin` via `CLOUDFLARE_IMAGE_MODEL`)
   - **Tier 2 (Fallback)**: Pollinations.ai with random seeds
   - Images are instantly uploaded and stored in **Cloudinary**.
 - 📅 **Post Scheduler**: Schedule text, images, and videos with precise date and time pickers.
@@ -211,6 +211,7 @@ GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
 # Cloudflare Workers AI (Image Generation)
 CLOUDFLARE_ACCOUNT_ID=your_cloudflare_account_id
 CLOUDFLARE_API_TOKEN=your_cloudflare_api_token
+CLOUDFLARE_IMAGE_MODEL="@cf/leonardo/lucid-origin"
 ```
 
 ### 2. Frontend (`frontend/.env`)
@@ -360,7 +361,7 @@ npm run dev
 - **Fallback Flow**: `gemini-2.0-flash` → `gemini-1.5-flash` → Dynamic Topic Template Engine.
 
 ### 2. **Image Generation Engine**
-- **Primary Tier**: Cloudflare Workers AI (`@cf/black-forest-labs/flux-1-schnell`). Generates fast 1080x1080 images from content-aware prompts, uploaded to Cloudinary.
+- **Primary Tier**: Cloudflare Workers AI (`@cf/leonardo/lucid-origin`, dynamically configured via `CLOUDFLARE_IMAGE_MODEL`). Generates fast, high-quality images from content-aware prompts, uploaded to Cloudinary.
 - **Fallback Tier**: Pollinations.ai with randomized seeds, uploaded to Cloudinary (or direct URL fallback).
 - **Backend Logging**: Clearly outputs which provider generated each asset to server logs.
 

@@ -72,3 +72,4 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 app.listen(port, () => {
     console.log(`Server is running at http://localhost:${port}`);
 });
+// Trigger nodemon reload for new routes
