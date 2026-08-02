@@ -39,14 +39,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [])
 
 
-    // useEffect(() => {
-    //     if (user) {
-    //         localStorage.setItem("social_ai_user", JSON.stringify(user));
-    //     } else {
-    //         localStorage.removeItem("social_ai_user");
-    //     }
-    // }, [user]);
-
     const login = (userData: User, newToken: string) => {
         setUser(userData)
         setToken(newToken)
@@ -79,7 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
+
 export function useAuth() {
     const context = useContext(AuthContext);
     if (!context) {
