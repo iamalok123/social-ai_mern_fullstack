@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import mongoose from "mongoose";
 import { Post } from "../models/Post.js";
 import { Account } from "../models/Account.js";
 import { ActivityLog } from "../models/ActivityLog.js";
@@ -9,6 +10,12 @@ export const initScheduler = () => {
     console.log("Scheduler service initialized");
 
     cron.schedule("* * * * *", async () => {
+        // Skip run if MongoDB is temporarily disconnected
+        if (mongoose.connection.readyState !== 1) {
+            console.warn("⚠️ [SCHEDULER] MongoDB is currently disconnected. Skipping cron tick until reconnected.");
+            return;
+        }
+
         try {
             const now = new Date();
             const postsToPublish = await Post.find({
@@ -80,8 +87,13 @@ export const initScheduler = () => {
             if (postsToPublish.length > 0) {
                 console.log(`Evaluated ${postsToPublish.length} posts at ${now.toISOString()}`);
             }
-        } catch (error) {
-            console.error("Error in scheduler cron task:", error);
+        } catch (error: any) {
+            if (error?.name === "MongoServerSelectionError" || error?.code === "ENOTFOUND") {
+                console.warn("⚠️ [SCHEDULER] Skipping cron task due to temporary MongoDB network disconnection.");
+            } else {
+                console.error("Error in scheduler cron task:", error);
+            }
         }
     })
 }
+
