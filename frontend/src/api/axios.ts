@@ -40,6 +40,7 @@ export const API_PATHS = {
         DELETE: (id: string) => `/api/ideas/${id}`,
         UPLOAD_IMAGE: "/api/ideas/upload",
         GENERATE_AI: "/api/ideas/generate-ai",
+        AI_ASSISTANT: "/api/ideas/ai-assistant",
     },
 };
 

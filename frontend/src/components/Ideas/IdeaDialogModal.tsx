@@ -138,7 +138,7 @@ export const IdeaDialogModal: React.FC<IdeaDialogModalProps> = ({
                         >
                             {columns.map((col) => (
                                 <option key={col.id} value={col.id}>
-                                    Column: {col.title}
+                                    {col.title}
                                 </option>
                             ))}
                         </select>

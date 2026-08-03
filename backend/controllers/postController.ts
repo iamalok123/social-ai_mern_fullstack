@@ -42,11 +42,9 @@ export const generatePost = async (req: AuthRequest, res: Response): Promise<voi
         let imagePrompt = prompt;
         let generatedSuccessfully = false;
 
-        const modelsToTry = [
-            process.env.GEMINI_MODEL || "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "gemini-1.5-flash"
-        ];
+        const envModel = process.env.GEMINI_MODEL;
+        const defaultModels = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash", "gemini-1.5-pro"];
+        const modelsToTry = Array.from(new Set(envModel ? [envModel, ...defaultModels] : defaultModels));
 
         for (const modelName of modelsToTry) {
             try {
@@ -77,7 +75,8 @@ Format your output STRICTLY as a valid JSON object with keys "content" and "imag
                     break;
                 }
             } catch (err: any) {
-                console.warn(`⚠️ [TEXT GEN] Gemini model ${modelName} attempt failed (${err?.message || err}), trying next model...`);
+                const errMsg = err?.status || err?.code || err?.message || "Unknown error";
+                console.warn(`⚠️ [TEXT GEN] Gemini model ${modelName} attempt failed (${errMsg}), trying next model...`);
             }
         }
 
