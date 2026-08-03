@@ -258,7 +258,7 @@ const AIComposer = () => {
                                     </div>
                                 </div>
 
-                                <p className="flex-1 text-sm text-slate-700 dark:text-zinc-300 line-clamp-3 leading-relaxed">
+                                <p className="flex-1 text-sm text-slate-700 dark:text-zinc-300 line-clamp-3 leading-relaxed wrap-break-word">
                                     {gen.content}
                                 </p>
 
@@ -298,29 +298,29 @@ const AIComposer = () => {
                 <div className="fixed inset-0 min-h-screen z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/50 dark:bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
                     <div className="bg-white dark:bg-zinc-950 rounded-2xl shadow-2xl w-full max-w-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden flex flex-col max-h-[92vh]">
 
-                        <div className="flex items-center justify-between px-5 sm:px-8 py-3.5 sm:py-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50">
+                        <div className="flex items-center justify-between px-5 sm:px-8 py-3.5 sm:py-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50 shrink-0">
                             <h3 className="text-slate-900 dark:text-white font-medium text-base sm:text-lg">Schedule Generation</h3>
                             <button onClick={() => setActiveScheduler(null)} className="p-1.5 sm:p-2 rounded-full hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-400 dark:text-zinc-500 transition-colors cursor-pointer">
                                 <XIcon className="size-5" />
                             </button>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-4">
+                        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-8 space-y-4 text-left">
                             <div className="bg-slate-50 dark:bg-zinc-900/60 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-zinc-800 space-y-4">
-                                <p className="text-slate-800 dark:text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">
+                                <p className="text-slate-800 dark:text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
                                     {activeScheduler.prompt}
                                 </p>
                             </div>
 
                             <div className="bg-slate-50 dark:bg-zinc-900/60 rounded-2xl p-4 sm:p-6 border border-slate-200 dark:border-zinc-800 space-y-4">
-                                <p className="text-slate-800 dark:text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap">
+                                <p className="text-slate-800 dark:text-zinc-200 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
                                     {activeScheduler.content}
                                 </p>
                                 {activeScheduler.mediaUrl && <img src={activeScheduler.mediaUrl} alt="preview" className="w-full aspect-video object-cover rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm" />}
                             </div>
                         </div>
 
-                        <div className="px-5 sm:px-8 border-t bg-slate-50/50 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-800 py-4 sm:py-6 space-y-4 sm:space-y-6">
+                        <div className="px-5 sm:px-8 border-t bg-slate-50/50 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-800 py-4 sm:py-6 space-y-4 sm:space-y-6 shrink-0">
                             {/* Options */}
                             <div className="space-y-4 sm:space-y-6">
                                 <div>

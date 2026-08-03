@@ -9,14 +9,38 @@ import { Post } from "../models/Post.js";
 import { generateAIImage } from "../services/imageGenService.js";
 
 const themeStyleMap: Record<string, string> = {
-    professional: "clean, corporate, minimalist studio photography style",
-    creative: "vibrant artistic style, rich color palette, dynamic composition",
-    funny: "bold comic-style illustration, vibrant colors, humorous exaggerated style",
-    minimalist: "flat design, soft pastel colors, plenty of negative space",
-    excited: "energetic bright neon aesthetic, high dynamic action style",
+    professional: "clean, corporate, minimalist studio photography style, high-end visual aesthetic",
+    creative: "vibrant artistic style, rich color palette, dynamic composition, creative visual storytelling",
+    funny: "bold comic-style illustration, vibrant colors, humorous exaggerated visual style",
+    minimalist: "flat design, soft pastel colors, plenty of negative space, elegant minimalist art",
+    excited: "energetic bright neon aesthetic, high dynamic action style, vivid electric visual style",
     meme: "bold comic-style illustration, vibrant colors, humorous exaggerated style",
-    cyberpunk: "neon-lit futuristic cyberpunk aesthetic, high contrast",
+    cyberpunk: "neon-lit futuristic cyberpunk aesthetic, high contrast, glowing digital artwork",
 };
+
+/**
+ * Constructs a context-aware, structured visual prompt for image generation
+ * models based on Gemini's visual scene description, generated post content, and target tone.
+ */
+function buildSocialMediaImagePrompt(aiVisualScene: string, postContent: string, tone?: string): string {
+    const toneKey = (tone || "professional").toLowerCase();
+    const styleSuffix = themeStyleMap[toneKey] || themeStyleMap.professional;
+
+    // Extract core subject/theme keywords from postContent (first sentence without hashtags)
+    const cleanedContent = postContent.replace(/[\r\n]+/g, " ").replace(/#\w+/g, "").trim();
+    const keySentence = cleanedContent.split(/(?<=[.!?])\s+/)[0] || cleanedContent;
+    const contextSnippet = keySentence.slice(0, 140);
+
+    // Clean aiVisualScene
+    const cleanScene = (aiVisualScene || contextSnippet)
+        .replace(/```json/gi, "")
+        .replace(/```/g, "")
+        .replace(/["{}]/g, "")
+        .trim();
+
+    // Construct structured prompt optimized for image diffusion models
+    return `Social media visual hero illustration: ${cleanScene}. Inspired by post topic: "${contextSnippet}". Style: ${styleSuffix}, 8k resolution, cinematic lighting, perfectly framed 1:1 square composition, vibrant aesthetic, highly detailed, professional social media graphic.`;
+}
 
 // Generate post
 // POST /api/posts/generate
@@ -56,7 +80,7 @@ Generate an engaging, high-performing social media post based on this request: "
 
 Requirements:
 1. "content": Write a comprehensive, detailed, and captivating post between 100 and 200 words. Do NOT write short 1-2 sentence posts. Include a compelling hook, detailed insights or narrative, actionable takeaways, a clear call to action (CTA), and 3-5 trending hashtags. Make it a LONG and detailed post.
-2. "imagePrompt": Create a vivid, highly descriptive, cinematic visual scene prompt (30-60 words) that explicitly reflects the core message, subject matter, and emotion of the generated post text. Describe subject details, lighting, ambiance, and dynamic action. Make the image generation explicitly aware of the text content.
+2. "imagePrompt": Create a vivid, standalone visual scene description (30-50 words) that explicitly visualizes the core subject matter and narrative of the generated post text. Describe specific subjects, background elements, mood, and lighting so an AI image generator can create a perfectly matching social media graphic.
 
 Tone/Style: ${tone || "Professional"}.
 
@@ -85,16 +109,25 @@ Format your output STRICTLY as a valid JSON object with keys "content" and "imag
             const formattedTopic = prompt.trim();
             const capitalizedTopic = formattedTopic.charAt(0).toUpperCase() + formattedTopic.slice(1);
 
-            content = `🚀 Comprehensive Guide & Deep Dive: ${capitalizedTopic}\n\nIn today's fast-evolving digital landscape, mastering ${formattedTopic} has become an essential strategy for creators, professionals, and forward-thinking teams. Whether you are building new solutions from scratch or refining your existing workflows, taking a structured approach to this topic drives substantial, measurable impact.\n\nKey Strategic Pillars for Success:\n• Strategic Vision: Align your core goals with actionable steps designed specifically around ${formattedTopic}.\n• Modern Frameworks & Tools: Implement cutting-edge automation and proven industry practices to eliminate operational friction.\n• Continuous Optimization: Measure key metrics, gather feedback, and continuously iterate to sustain long-term growth.\n\nBy taking proactive initiative on ${formattedTopic}, you position yourself for long-term productivity and innovation in your field.\n\n💬 What is your biggest challenge or top tip when working on ${formattedTopic}? We would love to hear your insights in the comments below!\n\n#${formattedTopic.replace(/[^a-zA-Z0-9]/g, "") || "Tech"} #${tone || "Professional"} #Innovation #GrowthMindset #Leadership #FutureOfWork`;
+            const topicTags = formattedTopic
+                .replace(/[^a-zA-Z0-9\s]/g, "")
+                .split(/\s+/)
+                .filter((w: string) => w.length > 3 && !["with", "from", "that", "this", "your", "their", "about", "using", "masterclass", "guide"].includes(w.toLowerCase()))
+                .slice(0, 3)
+                .map((w: string) => `#${w.charAt(0).toUpperCase()}${w.slice(1).toLowerCase()}`)
+                .join(" ");
 
-            imagePrompt = `A visually breathtaking cinematic concept illustration representing ${formattedTopic}. Rendered in a high-detail 3D artistic style featuring dynamic ambient studio lighting, rich colors, and abstract futuristic visual elements that directly capture the spirit of ${formattedTopic}.`;
+            const cleanHashtags = topicTags ? topicTags : "#Tech #Innovation";
+
+            content = `🚀 Comprehensive Guide & Deep Dive: ${capitalizedTopic}\n\nIn today's fast-evolving digital landscape, mastering ${formattedTopic} has become an essential strategy for creators, professionals, and forward-thinking teams. Whether you are building new solutions from scratch or refining your existing workflows, taking a structured approach to this topic drives substantial, measurable impact.\n\nKey Strategic Pillars for Success:\n• Strategic Vision: Align your core goals with actionable steps designed specifically around ${formattedTopic}.\n• Modern Frameworks & Tools: Implement cutting-edge automation and proven industry practices to eliminate operational friction.\n• Continuous Optimization: Measure key metrics, gather feedback, and continuously iterate to sustain long-term growth.\n\nBy taking proactive initiative on ${formattedTopic}, you position yourself for long-term productivity and innovation in your field.\n\n💬 What is your biggest challenge or top tip when working on ${formattedTopic}? We would love to hear your insights in the comments below!\n\n${cleanHashtags} #${tone || "Professional"} #GrowthMindset #Leadership #FutureOfWork`;
+
+            imagePrompt = `A high-impact conceptual visual representing ${formattedTopic} with modern ambient lighting and professional studio composition.`;
         }
 
         let mediaUrl = "";
         if (generateImage) {
-            const toneKey = (tone || "").toLowerCase();
-            const styleSuffix = themeStyleMap[toneKey] || "";
-            const finalImagePrompt = `${prompt} - ${imagePrompt}${styleSuffix ? ", " + styleSuffix : ""}`;
+            const finalImagePrompt = buildSocialMediaImagePrompt(imagePrompt, content, tone);
+            console.log(`🎨 [CONTEXTUAL IMAGE PROMPT]: "${finalImagePrompt}"`);
             mediaUrl = await generateAIImage(finalImagePrompt);
         }
 
