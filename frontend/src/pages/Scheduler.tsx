@@ -398,13 +398,13 @@ const Scheduler = () => {
                     {/* Right Column: Unified Live Social Media Post Preview with Navigation (< >) */}
                     {selectedPlatforms.length > 0 && (
                         <div className="w-full lg:w-auto flex flex-col items-center shrink-0 lg:sticky lg:top-6 transition-all duration-300 animate-in fade-in slide-in-from-right-4">
-                            <div className="w-full max-w-md flex items-center justify-between mb-2.5 px-1">
+                            <div className="w-full max-w-md flex items-center justify-between mb-1.5 px-1">
                                 {/* Left Title + Current Platform Badge */}
                                 <div className="flex items-center gap-2">
                                     <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
                                         Live Preview
                                     </span>
-                                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-sky-500 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-900/60 px-2.5 py-0.5 rounded-full">
+                                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-sky-500 bg-sky-50 dark:bg-sky-950/40 border border-sky-200 dark:border-sky-900/60 px-2 py-0.5 rounded-full">
                                         <span className="size-1.5 rounded-full bg-sky-500 animate-pulse" />
                                         {currentPlatformMeta.name}
                                     </span>
@@ -412,25 +412,25 @@ const Scheduler = () => {
 
                                 {/* Right Controls: < > Buttons for navigating multiple selected previews */}
                                 {selectedPlatforms.length > 1 && (
-                                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
+                                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-900 p-0.5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
                                         <button
                                             type="button"
                                             onClick={handlePrevPreview}
                                             title="Previous preview platform"
-                                            className="p-1 rounded-lg text-slate-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                                            className="p-0.5 rounded-lg text-slate-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                                         >
-                                            <ChevronLeftIcon className="size-4" />
+                                            <ChevronLeftIcon className="size-3.5" />
                                         </button>
-                                        <span className="text-[11px] font-semibold text-slate-600 dark:text-zinc-400 px-1.5">
+                                        <span className="text-[10px] font-semibold text-slate-600 dark:text-zinc-400 px-1">
                                             {activePreviewIndex + 1} / {selectedPlatforms.length}
                                         </span>
                                         <button
                                             type="button"
                                             onClick={handleNextPreview}
                                             title="Next preview platform"
-                                            className="p-1 rounded-lg text-slate-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+                                            className="p-0.5 rounded-lg text-slate-600 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
                                         >
-                                            <ChevronRightIcon className="size-4" />
+                                            <ChevronRightIcon className="size-3.5" />
                                         </button>
                                     </div>
                                 )}
@@ -438,7 +438,7 @@ const Scheduler = () => {
 
                             {/* Optional Platform Pills bar if multiple platforms selected */}
                             {selectedPlatforms.length > 1 && (
-                                <div className="w-full max-w-md flex items-center gap-1.5 mb-3 overflow-x-auto pb-1">
+                                <div className="w-full max-w-md flex items-center gap-1.5 mb-2 overflow-x-auto pb-0.5">
                                     {selectedPlatforms.map((pId, idx) => {
                                         const pMeta = PLATFORMS.find((p) => p.id === pId);
                                         const Icon = pMeta?.icon;
@@ -448,13 +448,13 @@ const Scheduler = () => {
                                                 key={pId}
                                                 type="button"
                                                 onClick={() => setActivePreviewIndex(idx)}
-                                                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer border ${
+                                                className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border ${
                                                     isActive
                                                         ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-zinc-900 dark:border-white shadow-xs"
                                                         : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
                                                 }`}
                                             >
-                                                {Icon && <Icon className="size-3.5" />}
+                                                {Icon && <Icon className="size-3" />}
                                                 <span>{pMeta?.name || pId}</span>
                                             </button>
                                         );

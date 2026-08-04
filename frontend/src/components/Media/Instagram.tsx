@@ -79,48 +79,48 @@ export const InstagramPostPreview: React.FC<InstagramProps> = ({
     };
 
     return (
-        <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md text-slate-900 dark:text-zinc-100 font-sans transition-all overflow-hidden text-left">
+        <div className="w-full max-w-77.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md text-slate-900 dark:text-zinc-100 font-sans transition-all overflow-hidden text-left">
             {/* Top Author Header (Matching Instagram Mockup) */}
-            <div className="p-3 flex items-center justify-between border-b border-slate-100 dark:border-zinc-800/80">
-                <div className="flex items-center gap-3 min-w-0">
+            <div className="px-2.5 py-1.5 flex items-center justify-between border-b border-slate-100 dark:border-zinc-800/80">
+                <div className="flex items-center gap-2 min-w-0">
                     <div className="p-0.5 rounded-full bg-linear-to-tr from-amber-500 via-rose-500 to-purple-600 shrink-0">
                         {user?.picture ? (
                             <img
                                 src={user.picture}
                                 alt={displayName}
-                                className="size-9 rounded-full object-cover border-2 border-white dark:border-zinc-900"
+                                className="size-7 rounded-full object-cover border-2 border-white dark:border-zinc-900"
                             />
                         ) : (
-                            <div className="size-9 rounded-full bg-slate-900 dark:bg-zinc-800 text-white font-bold text-sm flex items-center justify-center border-2 border-white dark:border-zinc-900">
+                            <div className="size-7 rounded-full bg-slate-900 dark:bg-zinc-800 text-white font-bold text-[11px] flex items-center justify-center border-2 border-white dark:border-zinc-900">
                                 {username.charAt(0).toUpperCase()}
                             </div>
                         )}
                     </div>
                     <div className="flex flex-col min-w-0">
-                        <span className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate leading-tight">
+                        <span className="font-bold text-[11px] text-slate-900 dark:text-white truncate leading-tight">
                             {username}
                         </span>
-                        <span className="text-[11px] text-slate-500 dark:text-zinc-400 leading-tight">
+                        <span className="text-[9px] text-slate-500 dark:text-zinc-400 leading-tight">
                             Sponsored 🌐
                         </span>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-center gap-1 shrink-0">
                     <button
                         type="button"
-                        className="bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-900 dark:text-white text-xs font-semibold px-3 py-1 rounded-lg transition-colors cursor-pointer"
+                        className="bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-900 dark:text-white text-[10px] font-semibold px-2 py-0.5 rounded-md transition-colors cursor-pointer"
                     >
                         Follow
                     </button>
-                    <button type="button" className="text-slate-400 dark:text-zinc-400 hover:text-slate-600 dark:hover:text-zinc-200 p-1 rounded-full">
-                        <MoreHorizontalIcon className="size-4.5" />
+                    <button type="button" className="text-slate-400 dark:text-zinc-400 hover:text-slate-600 dark:hover:text-zinc-200 p-0.5 rounded-full">
+                        <MoreHorizontalIcon className="size-3.5" />
                     </button>
                 </div>
             </div>
 
             {/* Media Area */}
-            <div className="w-full aspect-square bg-slate-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden">
+            <div className="w-full aspect-square max-h-44 sm:max-h-48 bg-slate-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden">
                 {mediaList.length > 0 ? (
                     mediaList[0].match(/\.(mp4|webm|ogg)$/i) || (mediaList[0].startsWith("blob:") && mediaList[0].includes("video")) ? (
                         <video src={mediaList[0]} controls className="w-full h-full object-cover" />
@@ -128,49 +128,49 @@ export const InstagramPostPreview: React.FC<InstagramProps> = ({
                         <img src={mediaList[0]} alt="Instagram Post Media" className="w-full h-full object-cover" />
                     )
                 ) : (
-                    <div className="p-6 text-center text-slate-400 dark:text-zinc-500 text-xs italic">
+                    <div className="p-3 text-center text-slate-400 dark:text-zinc-500 text-[11px] italic">
                         No image or video attached. Upload media to preview Instagram post layout.
                     </div>
                 )}
             </div>
 
             {/* Action Bar */}
-            <div className="p-3 pb-1 flex items-center justify-between">
-                <div className="flex items-center gap-4 text-slate-800 dark:text-zinc-200">
+            <div className="px-2.5 py-1.5 pb-0.5 flex items-center justify-between">
+                <div className="flex items-center gap-3 text-slate-800 dark:text-zinc-200">
                     <button type="button" className="hover:text-rose-500 transition-colors cursor-pointer">
-                        <HeartIcon className="size-5" />
+                        <HeartIcon className="size-4" />
                     </button>
                     <button type="button" className="hover:text-sky-500 transition-colors cursor-pointer">
-                        <MessageCircleIcon className="size-5" />
+                        <MessageCircleIcon className="size-4" />
                     </button>
                     <button type="button" className="hover:text-sky-500 transition-colors cursor-pointer">
-                        <SendIcon className="size-5" />
+                        <SendIcon className="size-4" />
                     </button>
                 </div>
                 <button type="button" className="text-slate-800 dark:text-zinc-200 hover:text-amber-500 transition-colors cursor-pointer">
-                    <BookmarkIcon className="size-5" />
+                    <BookmarkIcon className="size-4" />
                 </button>
             </div>
 
             {/* Likes count / Social proof line */}
-            <div className="px-3 text-xs font-bold text-slate-900 dark:text-white flex items-center gap-1.5 mt-0.5">
-                <div className="size-4 rounded-full bg-slate-300 dark:bg-zinc-700 shrink-0" />
+            <div className="px-2.5 text-[11px] font-bold text-slate-900 dark:text-white flex items-center gap-1 mt-0.5">
+                <div className="size-3.5 rounded-full bg-slate-300 dark:bg-zinc-700 shrink-0" />
                 <span>Liked by <strong className="font-semibold">user</strong> and <strong className="font-semibold">2,368 others</strong></span>
             </div>
 
             {/* Caption & Hashtags */}
-            <div className="px-3 pt-1 text-xs leading-relaxed text-slate-800 dark:text-zinc-100">
-                <span className="font-bold mr-1.5 text-slate-900 dark:text-white">{username}</span>
+            <div className="px-2.5 pt-0.5 text-[11px] leading-snug text-slate-800 dark:text-zinc-100">
+                <span className="font-bold mr-1 text-slate-900 dark:text-white">{username}</span>
                 {renderFormattedContent(content)}
             </div>
 
             {/* Comments count link */}
-            <div className="px-3 pt-1 text-[11px] text-slate-400 dark:text-zinc-500 hover:text-slate-600 cursor-pointer">
+            <div className="px-2.5 pt-0.5 text-[10px] text-slate-400 dark:text-zinc-500 hover:text-slate-600 cursor-pointer">
                 View all 45 comments
             </div>
 
             {/* Time Ago Footer */}
-            <div className="px-3 pt-0.5 pb-3 text-[10px] uppercase font-medium text-slate-400 dark:text-zinc-500">
+            <div className="px-2.5 pt-0.5 pb-2 text-[9px] uppercase font-medium text-slate-400 dark:text-zinc-500">
                 21 hours ago
             </div>
         </div>
