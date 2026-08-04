@@ -7,43 +7,69 @@ export default function Navbar() {
     const { user } = useAuth();
 
     return (
-        <nav className="sticky top-0 z-50 bg-white/80 dark:bg-black/90 backdrop-blur-lg border-b border-slate-100 dark:border-zinc-800 transition-colors">
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-                <Link to="/" onClick={() => scrollTo(0, 0)} className="flex items-center gap-2 ">
-                    <img src="/logo.svg" alt="logo" className="size-7" />
-                    <span className="text-xl lg:text-2xl font-medium font-serif text-slate-800 dark:text-white">Social AI</span>
+        <header className="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] sm:w-[94%] max-w-6xl lg:max-w-7xl transition-all duration-200">
+            {/* Dark Capsule Rectangle Container */}
+            <nav className="w-full bg-zinc-950/95 dark:bg-black/95 backdrop-blur-xl border border-zinc-800/90 rounded-full px-5 sm:px-7 py-2.5 sm:py-3 flex items-center justify-between shadow-2xl shadow-black/60 transition-all duration-200">
+                
+                {/* Brand Logo & Name */}
+                <Link to="/" onClick={() => scrollTo(0, 0)} className="flex items-center gap-2.5 shrink-0 group">
+                    <img src="/logo.svg" alt="Social AI Logo" className="size-7 group-hover:scale-105 transition-transform" />
+                    <span className="text-lg sm:text-xl font-bold font-serif tracking-tight text-white">
+                        Social AI
+                    </span>
                 </Link>
-                <div className="hidden md:flex items-center gap-8 text-sm text-slate-500 dark:text-zinc-400">
-                    <a href="#features" className="hover:text-slate-900 dark:hover:text-orange-400 transition-colors">
+
+                {/* Highly Visible Nav Links */}
+                <div className="hidden md:flex items-center gap-6 lg:gap-8 text-sm font-semibold text-zinc-200">
+                    <a href="#features" className="hover:text-orange-400 transition-colors">
                         Features
                     </a>
-                    <a href="#how-it-works" className="hover:text-slate-900 dark:hover:text-orange-400 transition-colors">
+                    <a href="#how-it-works" className="hover:text-orange-400 transition-colors">
                         How it works
                     </a>
-                    <a href="#pricing" className="hover:text-slate-900 dark:hover:text-orange-400 transition-colors">
+                    <a href="#pricing" className="hover:text-orange-400 transition-colors">
                         Pricing
+                    </a>
+                    <a href="#testimonials" className="hover:text-orange-400 transition-colors">
+                        Testimonials
+                    </a>
+                    <a href="#faq" className="hover:text-orange-400 transition-colors">
+                        FAQ
                     </a>
                 </div>
 
-                <div className="flex items-center gap-4 sm:gap-5">
+                {/* Right Actions: Theme Toggle & CTA Button */}
+                <div className="flex items-center gap-3 sm:gap-4 shrink-0">
                     <ThemeToggle />
 
                     {user ? (
-                        <Link to="/dashboard" className="flex items-center gap-1.5 text-sm font-medium bg-red-500 hover:bg-red-600 dark:bg-orange-600 dark:hover:bg-orange-500 text-white px-4 py-2 rounded-full shadow-sm transition-all">
-                            Go to Dashboard <ArrowRightIcon className="size-3.5" />
+                        <Link
+                            to="/dashboard"
+                            className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-4 sm:px-6 py-2 sm:py-2.5 rounded-full shadow-lg shadow-orange-500/30 hover:scale-[1.02] transition-all cursor-pointer"
+                        >
+                            <span>Go to Dashboard</span>
+                            <ArrowRightIcon className="size-3.5" />
                         </Link>
                     ) : (
-                        <div className="flex items-center gap-3.5 sm:gap-5">
-                            <Link to="/login" className="text-sm font-medium text-slate-600 dark:text-zinc-300 hover:text-slate-900 dark:hover:text-orange-400 hidden sm:block transition-colors">
+                        <div className="flex items-center gap-2 sm:gap-4">
+                            <Link
+                                to="/login"
+                                className="text-xs sm:text-sm font-semibold text-zinc-300 hover:text-white hidden sm:block transition-colors px-2"
+                            >
                                 Sign In
                             </Link>
-                            <Link to="/login" className="flex items-center gap-1.5 text-sm font-medium bg-red-500 hover:bg-red-600 dark:bg-orange-600 dark:hover:bg-orange-500 text-white px-4 py-2 rounded-full shadow-sm hover:shadow-orange-500/20 transition-all">
-                                Get Started <ArrowRightIcon className="size-3.5" />
+                            <Link
+                                to="/login"
+                                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white px-4 sm:px-6 py-2 sm:py-2.5 rounded-full shadow-lg shadow-orange-500/30 hover:scale-[1.02] transition-all cursor-pointer"
+                            >
+                                <span>Get Started</span>
+                                <ArrowRightIcon className="size-3.5" />
                             </Link>
                         </div>
                     )}
                 </div>
-            </div>
-        </nav>
+
+            </nav>
+        </header>
     );
 }
