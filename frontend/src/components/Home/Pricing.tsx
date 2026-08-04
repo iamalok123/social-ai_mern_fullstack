@@ -1,82 +1,170 @@
-import { CheckIcon, CircleCheckBigIcon } from "lucide-react";
+import { CheckCheck, Info, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const pricingPlans = [
     {
-        name: "Starter",
-        price: "Free",
-        period: "",
-        description: "Perfect for creators just getting started with social media automation.",
-        features: ["2 social accounts", "10 scheduled posts/month", "AI content (5 credits/mo)", "Basic dashboard"],
-        cta: "Get Started Free",
+        name: "Starter Plan",
+        badgeText: "Free for",
+        price: "$0",
+        period: "/ Month",
+        description: "Perfect for individuals trying out to management.",
+        features: [
+            "Manage up to 2 social profiles",
+            "Schedule up to 30 posts/month",
+            "Basic analytics dashboard",
+            "1 user seat",
+            "Email support"
+        ],
+        cta: "Get Started Now",
         highlight: false,
     },
     {
-        name: "Pro",
-        price: "$29",
-        period: "/month",
-        description: "Everything you need to grow and automate your social presence.",
-        features: ["Unlimited accounts", "Unlimited scheduling", "AI content (200 credits/mo)", "Priority support"],
-        cta: "Start 14-day Free Trial",
+        name: "Professional Plan",
+        badgeText: "Perfect for",
+        price: "$45",
+        period: "/ Month",
+        description: "Built for small teams and growing brands.",
+        features: [
+            "Manage up to 10 social profiles",
+            "Unlimited post scheduling",
+            "Advanced analytics & insights",
+            "3 user seats",
+            "Team collaboration tools",
+            "Priority email support"
+        ],
+        cta: "Get Started Now",
         highlight: true,
+        popularBadge: "Popular Plan"
     },
     {
-        name: "Agency",
+        name: "Business Plan",
+        badgeText: "Perfect for",
         price: "$79",
-        period: "/month",
-        description: "For teams and agencies managing multiple brands at scale.",
-        features: ["Everything in Pro", "5 team members", "Unlimited AI credits", "Custom AI personas", "Dedicated support"],
-        cta: "Contact Sales",
+        period: "/ Month",
+        description: "Best for agencies and larger organizations.",
+        features: [
+            "Unlimited social profiles",
+            "Unlimited post scheduling",
+            "Full analytics & reporting",
+            "10+ user seats",
+            "Dedicated account manager",
+            "24/7 priority support"
+        ],
+        cta: "Get Started Now",
         highlight: false,
     },
 ];
 
 export default function Pricing() {
     return (
-        <section id="pricing" className="py-24 bg-white dark:bg-black transition-colors">
-            <div className="max-w-6xl mx-auto px-4 sm:px-6">
-                <div className="text-center mb-16">
-                    <div className="mb-6 inline-flex items-center gap-1.5 bg-red-500/10 dark:bg-orange-500/10 border border-red-500/15 dark:border-orange-500/20 text-red-500 dark:text-orange-400 text-[11px] font-medium tracking-[0.06em] uppercase px-3.5 py-1.5 rounded-full">
-                        <CircleCheckBigIcon className="size-3" />
-                        Simple pricing
+        <section id="pricing" className="py-20 sm:py-28 bg-white dark:bg-black transition-colors duration-200 overflow-hidden">
+            <div className="max-w-7xl mx-auto px-5 sm:px-8">
+                
+                {/* Section Header */}
+                <div className="text-center max-w-3xl mx-auto mb-16 sm:mb-20">
+                    {/* Top Pill Badge */}
+                    <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-500/10 dark:bg-orange-500/15 border border-orange-500/20 text-orange-600 dark:text-orange-400 text-xs sm:text-sm font-medium mb-5">
+                        <Sparkles className="size-3.5 text-orange-500" />
+                        <span>Pricing Plan</span>
                     </div>
-                    <h2 className="font-serif font-medium text-4xl sm:text-5xl leading-tight text-gray-900 dark:text-white">
-                        Plans for every stage
-                        <br />
-                        <span className="text-red-400 dark:text-orange-500 italic">of growth</span>
+
+                    {/* Main Title */}
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold font-serif tracking-tight text-slate-900 dark:text-white leading-tight">
+                        Transparent Plans That <br className="hidden sm:inline" />
+                        Scale With Your Need
                     </h2>
-                    <p className="mt-5 text-gray-500 dark:text-zinc-400 max-w-md mx-auto">Start free, upgrade when you&apos;re ready. Cancel anytime — no hidden fees.</p>
+
+                    {/* Subtitle */}
+                    <p className="mt-4 text-slate-500 dark:text-zinc-400 text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
+                        Choose the plan that fits your strategy. No hidden fees, no surprises—just reliable social media intelligence.
+                    </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-start">
-                    {pricingPlans.map((plan) => (
-                        <div key={plan.name} className={`rounded-2xl border p-7 flex flex-col gap-6 relative transition-all ${plan.highlight ? "bg-red-500 dark:bg-orange-600 text-white border-red-400 dark:border-orange-500 shadow-2xl shadow-red-500/20 dark:shadow-orange-500/25" : "bg-white dark:bg-zinc-950 text-slate-900 dark:text-white border-slate-200 dark:border-zinc-800"}`}>
-                            {plan.highlight && <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-bold px-3.5 py-1.5 rounded-full shadow-md">Most Popular</div>}
-                            <div>
-                                <div className={`text-sm font-semibold mb-1 ${plan.highlight ? "text-red-100 dark:text-orange-100" : "text-red-500 dark:text-orange-400"}`}>{plan.name}</div>
-                                <div className="flex items-end gap-1">
-                                    <span className="text-4xl font-bold">{plan.price}</span>
-                                    <span className={`text-sm mb-1.5 ${plan.highlight ? "text-red-200 dark:text-orange-200" : "text-slate-400 dark:text-zinc-400"}`}>{plan.period}</span>
+                {/* 3-Column Pricing Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-8 items-stretch pt-4">
+                    {pricingPlans.map((plan) => {
+                        return (
+                            <div
+                                key={plan.name}
+                                className={`relative rounded-3xl p-6 sm:p-8 flex flex-col justify-between transition-all duration-300 ${
+                                    plan.highlight
+                                        ? "bg-linear-to-b from-orange-500/10 via-amber-500/5 to-white dark:from-orange-500/15 dark:via-zinc-900/90 dark:to-zinc-950 border-2 border-orange-500 dark:border-orange-500 shadow-2xl shadow-orange-500/15 scale-100 md:scale-[1.02] z-10"
+                                        : "bg-slate-50/70 dark:bg-zinc-950 border border-slate-200/80 dark:border-zinc-800/80 shadow-xs hover:border-orange-500/30"
+                                }`}
+                            >
+                                {/* Top Floating Badge for Highlighted Card */}
+                                {plan.highlight && plan.popularBadge && (
+                                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-linear-to-r from-orange-500 to-amber-500 text-white font-semibold text-xs px-4 py-1.5 rounded-full shadow-lg shadow-orange-500/30 uppercase tracking-wider">
+                                        {plan.popularBadge}
+                                    </div>
+                                )}
+
+                                <div>
+                                    {/* Sub-badge text */}
+                                    <div className="text-center text-xs font-semibold text-slate-400 dark:text-zinc-500 uppercase tracking-wider mb-1">
+                                        {plan.badgeText}
+                                    </div>
+
+                                    {/* Plan Title */}
+                                    <h3 className="text-center text-2xl sm:text-3xl font-semibold text-slate-900 dark:text-white tracking-tight mb-2">
+                                        {plan.name}
+                                    </h3>
+
+                                    {/* Description */}
+                                    <p className="text-center text-xs sm:text-sm text-slate-500 dark:text-zinc-400 leading-relaxed mb-6 max-w-xs mx-auto">
+                                        {plan.description}
+                                    </p>
+
+                                    {/* Price Header */}
+                                    <div className="flex items-baseline justify-center gap-1 my-4">
+                                        <span className="text-4xl sm:text-5xl font-bold font-serif text-slate-900 dark:text-white tracking-tight">
+                                            {plan.price}
+                                        </span>
+                                        <span className="text-xs sm:text-sm text-slate-400 dark:text-zinc-500 font-medium">
+                                            {plan.period}
+                                        </span>
+                                    </div>
+
+                                    {/* CTA Button */}
+                                    <div className="my-6">
+                                        <Link
+                                            to="/login"
+                                            className={`w-full inline-flex items-center justify-center py-3.5 px-6 rounded-2xl font-semibold text-sm transition-all duration-200 shadow-xs cursor-pointer ${
+                                                plan.highlight
+                                                    ? "bg-linear-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/30 hover:scale-[1.01]"
+                                                    : "bg-white dark:bg-zinc-900 border border-orange-500/40 text-orange-600 dark:text-orange-400 hover:bg-orange-500/5 dark:hover:bg-orange-500/10"
+                                            }`}
+                                        >
+                                            {plan.cta}
+                                        </Link>
+                                    </div>
+
+                                    {/* Features Divider */}
+                                    <div className="w-full h-px bg-slate-200/70 dark:bg-zinc-800/80 my-6" />
+
+                                    {/* Features List */}
+                                    <ul className="space-y-3.5">
+                                        {plan.features.map((feature, idx) => (
+                                            <li key={idx} className="flex items-center justify-between gap-2 text-xs sm:text-sm">
+                                                <div className="flex items-center gap-2.5">
+                                                    {/* Orange Double Checkmark Icon */}
+                                                    <CheckCheck className="size-4 text-orange-500 shrink-0 stroke-[2.2]" />
+                                                    <span className="text-slate-700 dark:text-zinc-300 font-medium">
+                                                        {feature}
+                                                    </span>
+                                                </div>
+
+                                                {/* Information Circle Icon on Far Right */}
+                                                <div className="shrink-0 text-slate-300 dark:text-zinc-600 hover:text-slate-500 dark:hover:text-zinc-400 transition-colors cursor-pointer" title={feature}>
+                                                    <Info className="size-4 stroke-[1.8]" />
+                                                </div>
+                                            </li>
+                                        ))}
+                                    </ul>
                                 </div>
-                                <p className={`text-sm mt-2 leading-relaxed ${plan.highlight ? "text-red-100 dark:text-orange-100" : "text-slate-500 dark:text-zinc-400"}`}>{plan.description}</p>
                             </div>
-
-                            <ul className="space-y-2.5">
-                                {plan.features.map((f) => (
-                                    <li key={f} className="flex items-center gap-2.5 text-sm">
-                                        <div className={`size-4 rounded-full flex items-center justify-center shrink-0 ${plan.highlight ? "bg-red-400 dark:bg-orange-500" : "bg-red-50 dark:bg-orange-950/50"}`}>
-                                            <CheckIcon className={`w-2.5 h-2.5 ${plan.highlight ? "text-white" : "text-red-500 dark:text-orange-400"}`} />
-                                        </div>
-                                        <span className={plan.highlight ? "text-red-50 dark:text-orange-50" : "text-slate-600 dark:text-zinc-300"}>{f}</span>
-                                    </li>
-                                ))}
-                            </ul>
-
-                            <Link to="/#" className={`mt-auto text-center font-semibold text-sm px-6 py-3 rounded-full transition-all ${plan.highlight ? "bg-white text-red-500 dark:text-orange-600 hover:bg-red-50 dark:hover:bg-orange-50" : "bg-red-500 text-white hover:bg-red-600 dark:bg-orange-600 dark:hover:bg-orange-500"}`}>
-                                {plan.cta}
-                            </Link>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </section>
