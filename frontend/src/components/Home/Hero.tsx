@@ -69,11 +69,11 @@ export default function Hero() {
             <div className="absolute bottom-16 left-[18%] size-2.5 rounded-full bg-orange-400/80 blur-2xs pointer-events-none" />
 
             {/* Main Responsive Container */}
-            <div className="relative w-full max-w-360 mx-auto px-5 sm:px-8 lg:px-12">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+            <div className="relative w-full max-w-7xl mx-auto px-5 sm:px-8 lg:px-12">
+                <div className="flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-55">
                     
                     {/* LEFT COLUMN: Content, Headline & CTAs */}
-                    <div className="lg:col-span-6 text-center lg:text-left pt-2 lg:pt-0">
+                    <div className="w-full lg:w-auto lg:max-w-xl text-center lg:text-left pt-2 lg:pt-0 shrink-0">
                         {/* Top Pill Badge */}
                         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-500/10 dark:bg-orange-500/15 border border-orange-500/30 text-orange-600 dark:text-orange-400 text-xs sm:text-sm font-semibold mb-5 backdrop-blur-md shadow-xs">
                             <Zap className="size-3.5 fill-orange-500 text-orange-500" />
@@ -130,7 +130,7 @@ export default function Hero() {
                     </div>
 
                     {/* RIGHT COLUMN: Schedule Card Wrapper with Attached Social Icons */}
-                    <div className="lg:col-span-6 relative flex items-center justify-center lg:justify-end">
+                    <div className="w-full lg:w-auto relative flex items-center justify-center shrink-0">
                         
                         {/* Glow Aura directly behind Schedule Card */}
                         <div className="absolute inset-0 bg-linear-to-tr from-orange-500/35 via-amber-500/25 to-transparent blur-3xl rounded-full pointer-events-none" />
