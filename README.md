@@ -12,6 +12,7 @@ A modern, production-ready, full-stack social media management, content ideas Ka
 - [Project Architecture](#-project-architecture)
 - [Prerequisites](#-prerequisites)
 - [Environment Variables](#-environment-variables)
+- [Google OAuth 2.0 Configuration Guide](#-google-oauth-20-configuration-guide)
 - [Installation & Local Setup](#-installation--local-setup)
 - [Application Views & Navigation](#-application-views--navigation)
 - [Database Models](#-database-models)
@@ -28,8 +29,8 @@ A modern, production-ready, full-stack social media management, content ideas Ka
 
 **Social AI** empowers content creators, marketing teams, and businesses to brainstorm, generate, schedule, and automate posts across multiple social channels (Twitter/X, LinkedIn, Facebook, Instagram, etc.).
 
-It features an integrated **Content Ideas Kanban Board** for idea management alongside a **dual AI engine**:
-1. **AI Text Generation**: Powered by **Google Gemini** (`gemini-2.0-flash`) for crafting engaging 100–200 word captions, tone-adapted copy, and content-aware visual prompts.
+It features an integrated **Content Ideas Kanban Board** alongside a **dual AI engine**:
+1. **AI Text Generation**: Powered by **Google Gemini** (`gemini-2.0-flash` with `gemini-1.5-flash` fallback) for crafting engaging 100–200 word captions, tone-adapted copy, and content-aware visual prompts.
 2. **AI Image Generation**: A 2-tier fallback chain using **Cloudflare Workers AI** (`@cf/leonardo/lucid-origin`, configurable via `CLOUDFLARE_IMAGE_MODEL`) and **Pollinations.ai**, automatically uploading generated images to **Cloudinary** for permanent CDN hosting.
 
 An automated background worker (`node-cron`) runs every minute, publishing scheduled posts to connected accounts via the **Zernio API**.
@@ -38,18 +39,24 @@ An automated background worker (`node-cron`) runs every minute, publishing sched
 
 ## ✨ Key Features
 
-- 🔐 **Authentication & Security**: JWT-based session security, `bcrypt` password hashing, Google OAuth 2.0 integration, and rate limiting via `express-rate-limit`.
+- 🔐 **Authentication & Security**:
+  - JWT-based session security and `bcrypt` password hashing.
+  - Native Google OAuth 2.0 Sign-In via Google Identity Services (`@accounts/gsi`).
+  - Rate limiting via `express-rate-limit` (General: 100 req/15min, Auth: 20 req/15min).
 - 💡 **Ideas Kanban Board & AI Brainstorming**:
   - Interactive multi-column Kanban layout (`Backlog`, `In Progress`, `Ready to Post`).
   - Move ideas across columns with ease.
-  - **AI Idea Generator Popover**: Instant topic & hook brainstorming powered by Google Gemini.
+  - **AI Brainstorm Assistant Modal**: Instant topic, hook, outline, and angle brainstorming powered by Google Gemini with multi-model fallback.
   - Create, edit, and delete ideas with cover images and tags.
   - 1-click transition from an Idea into a scheduled post or AI draft.
 - 🤖 **AI-Powered Content Composer**: Native integration with `@google/genai` for generating 100–200 word posts with hashtags, hooks, and CTAs across multiple tones (`Professional`, `Creative`, `Funny`, `Minimalist`, `Excited`).
 - 🎨 **Multi-Tier AI Image Generator**:
-  - **Tier 1 (Primary)**: Cloudflare Workers AI (`@cf/leonardo/lucid-origin` via `CLOUDFLARE_IMAGE_MODEL`)
-  - **Tier 2 (Fallback)**: Pollinations.ai with random seeds
+  - **Tier 1 (Primary)**: Cloudflare Workers AI (`@cf/leonardo/lucid-origin` via `CLOUDFLARE_IMAGE_MODEL`).
+  - **Tier 2 (Fallback)**: Pollinations.ai with randomized seeds.
   - Images are instantly uploaded and stored in **Cloudinary**.
+  - Automatic prompt sanitization to remove conversational prefixes/markdown.
+- 📱 **Real-Time Interactive Platform Previews**:
+  - Live preview cards for **Twitter/X**, **LinkedIn**, **Facebook**, and **Instagram** directly in the Scheduler.
 - 📅 **Post Scheduler**: Schedule text, images, and videos with precise date and time pickers.
 - 🔌 **Social Channel Connection**: OAuth connection for Twitter/X, LinkedIn, Facebook, and Instagram powered by the Zernio SDK (`@zernio/node`).
 - ⏱️ **Automated Background Dispatcher**: Minute-by-minute automated post dispatcher powered by `node-cron`.
@@ -89,7 +96,7 @@ An automated background worker (`node-cron`) runs every minute, publishing sched
 social-media_scheduler_fullstack_mern/
 ├── backend/                        # Express.js REST API (TypeScript)
 │   ├── config/                     # Configuration files
-│   │   ├── db.ts                   # Mongoose MongoDB connection (with DNS fix)
+│   │   ├── db.ts                   # Mongoose MongoDB connection
 │   │   ├── cloudinary.ts           # Cloudinary v2 SDK configuration
 │   │   ├── multer.ts               # Storage engine for media upload
 │   │   └── zernio.ts               # Zernio API client instance
@@ -97,7 +104,8 @@ social-media_scheduler_fullstack_mern/
 │   │   ├── accountController.ts    # Social account connection & management
 │   │   ├── activityController.ts   # System activity & event logging
 │   │   ├── authController.ts       # Register, Login, Google OAuth, Change Password
-│   │   ├── postController.ts       # AI post generation, schedule & fetch
+│   │   ├── ideaController.ts       # Ideas CRUD, image upload & AI brainstorm
+│   │   ├── postController.ts       # AI post generation, schedule, delete & fetch
 │   │   └── socialAuthController.ts # Social media OAuth flow handlers via Zernio
 │   ├── middlewares/                # Custom Express middlewares
 │   │   └── authMiddleware.ts       # JWT authentication & user extraction
@@ -105,31 +113,53 @@ social-media_scheduler_fullstack_mern/
 │   │   ├── Account.ts              # Connected Social Media Accounts
 │   │   ├── ActivityLog.ts          # Activity & Event History Logs
 │   │   ├── Generation.ts           # Saved AI-generated prompt content & media
+│   │   ├── Idea.ts                 # Ideas Kanban board item schema
 │   │   ├── Post.ts                 # Post content, media, schedule & status
 │   │   └── User.ts                 # User credentials & profile data
 │   ├── routes/                     # Express Router Definitions
 │   │   ├── accountRoutes.ts        # /api/accounts
 │   │   ├── activityRoutes.ts       # /api/activity
 │   │   ├── authRoutes.ts           # /api/auth
+│   │   ├── ideaRoutes.ts           # /api/ideas
 │   │   ├── postRoutes.ts           # /api/posts
 │   │   └── socialAuthRoutes.ts     # /api/oauth
 │   ├── services/                   # Core Services
 │   │   ├── imageGenService.ts      # Cloudflare Workers AI & Pollinations fallback chain
 │   │   └── schedulerService.ts     # Cron-based post queue processor
 │   ├── .env.example                # Backend environment template
+│   ├── nodemon.json                # Nodemon watcher configuration
 │   ├── server.ts                   # Server entrypoint with Express, CORS & Rate Limiting
 │   ├── tsconfig.json               # Backend TypeScript config
 │   ├── vercel.json                 # Vercel deployment configuration
 │   └── package.json                # Dependencies & scripts
 │
 ├── frontend/                       # React 19 Web Application (Vite)
-│   ├── public/                     # Static public assets (logo, icons)
+│   ├── public/                     # Static public assets (logo, icons, previews)
 │   ├── src/                        # React source code
 │   │   ├── api/                    # Axios client instance & endpoint mapping
 │   │   ├── assets/                 # Brand assets & platform definitions
 │   │   ├── components/             # Reusable UI components
-│   │   │   ├── Account/            # Social account connection modals
-│   │   │   ├── Home/               # Landing page sections
+│   │   │   ├── Account/            # Social account connection modals & list
+│   │   │   ├── Home/               # Modern landing page components
+│   │   │   │   ├── AppShowcase.tsx # Live feature walkthrough showcase
+│   │   │   │   ├── FAQ.tsx         # Collapsible FAQ accordion
+│   │   │   │   ├── Features.tsx    # Feature highlights & cards
+│   │   │   │   ├── Footer.tsx      # Responsive footer with newsletter
+│   │   │   │   ├── Hero.tsx        # Hero section with CTA & schedule card
+│   │   │   │   ├── HowItWorks.tsx  # Step-by-step workflow guide
+│   │   │   │   ├── Navbar.tsx      # Capsule navigation header
+│   │   │   │   ├── Pricing.tsx     # Tier comparison cards
+│   │   │   │   └── Testimonials.tsx# Infinite marquee social proof
+│   │   │   ├── Ideas/              # Kanban board & AI brainstorm modals
+│   │   │   │   ├── AiBrainstormModal.tsx # AI ideas generation popup
+│   │   │   │   ├── IdeaCard.tsx    # Individual Kanban card item
+│   │   │   │   ├── IdeaDialogModal.tsx   # Add/Edit idea modal
+│   │   │   │   └── KanbanColumn.tsx# Droppable status column
+│   │   │   ├── Media/              # Social media post live preview cards
+│   │   │   │   ├── Facebook.tsx    # Facebook feed card preview
+│   │   │   │   ├── Instagram.tsx   # Instagram post preview
+│   │   │   │   ├── Linkedin.tsx    # LinkedIn feed post preview
+│   │   │   │   └── Twitter.tsx     # Twitter/X tweet card preview
 │   │   │   ├── Layout.tsx          # Main Dashboard layout shell
 │   │   │   ├── Sidebar.tsx         # Navigation sidebar & user popover
 │   │   │   └── ThemeToggle.tsx     # Light/Dark mode toggle
@@ -147,9 +177,9 @@ social-media_scheduler_fullstack_mern/
 │   │   │   └── Scheduler.tsx       # Post composer & calendar queue
 │   │   ├── App.tsx                 # Top-level routing & layout wrapper
 │   │   ├── main.tsx                # React DOM render entrypoint
-│   │   └── index.css               # Tailwind CSS imports & custom styles
+│   │   └── index.css               # Tailwind CSS imports & custom animations
 │   ├── .env.example                # Frontend environment template
-│   ├── vite.config.ts              # Vite plugins & configuration
+│   ├── vite.config.ts              # Vite plugins & configuration (Port 5173)
 │   ├── vercel.json                 # Vercel SPA routing configuration
 │   ├── tsconfig.json               # Frontend TypeScript config
 │   └── package.json                # Frontend dependencies
@@ -169,7 +199,7 @@ Ensure your development environment meets the following requirements before setu
 - **Database**: Active **MongoDB** instance (MongoDB Atlas cluster or local instance)
 - **API Keys**:
   - [Google AI Studio](https://aistudio.google.com/) API Key (for Gemini Text AI)
-  - [Cloudflare Dashboard](https://dash.cloudflare.com/) Account ID & API Token (for Flux-1-schnell Image AI)
+  - [Cloudflare Dashboard](https://dash.cloudflare.com/) Account ID & API Token (for Flux/Leonardo Image AI)
   - [Cloudinary](https://cloudinary.com/) Account (Cloud Name, API Key, API Secret)
   - [Zernio](https://zernio.com/) API Key (for Social Media Posting)
   - [Google Cloud Console](https://console.cloud.google.com/) OAuth 2.0 Client ID
@@ -221,11 +251,29 @@ Copy `frontend/.env.example` to `frontend/.env`:
 ```env
 # Backend API URL
 VITE_BACKEND_URL="http://localhost:3000"
-BACKEND_URL="http://localhost:3000"
 
 # Google OAuth Client ID
 VITE_GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
 ```
+
+---
+
+## 🔐 Google OAuth 2.0 Configuration Guide
+
+If you encounter `Error 400: origin_mismatch` during Google Sign-In, follow these steps to register your origins:
+
+1. Open [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials).
+2. Select your project and click on your **OAuth 2.0 Client ID** (Web application).
+3. Under **Authorized JavaScript origins**, click **+ ADD URI** and add:
+   - `http://localhost:5173` *(Local Vite frontend)*
+   - `http://localhost:3000` *(Local Backend)*
+   - `http://localhost`
+   - `https://your-production-app.vercel.app` *(Production domain)*
+   > **Note:** Do not include trailing slashes `/` in JavaScript origins.
+4. Under **Authorized redirect URIs**, add:
+   - `http://localhost:5173`
+   - `https://your-production-app.vercel.app`
+5. Click **SAVE** and allow 2–5 minutes for changes to propagate.
 
 ---
 
@@ -260,13 +308,13 @@ npm run dev
 
 | Route | View | Description |
 | :--- | :--- | :--- |
-| `/` | **Landing Page** | Public showcase highlighting features, integrations, and login CTA. |
+| `/` | **Landing Page** | Public showcase highlighting hero section, live app showcase, FAQ, pricing, and testimonials. |
 | `/login` | **Authentication** | Secure email/password login, account registration, and Google OAuth 2.0. |
 | `/dashboard` | **Dashboard** | Analytics metrics, upcoming post queue summary, and activity feed. |
 | `/accounts` | **Social Accounts** | Connect and manage Twitter/X, LinkedIn, Facebook, and Instagram channels. |
-| `/schedule` | **Post Scheduler** | Interactive calendar/list composer to schedule posts with image/video attachments. |
+| `/schedule` | **Post Scheduler** | Interactive calendar & post composer with real-time Twitter, LinkedIn, Facebook, and Instagram live previews. |
 | `/ideas` | **Ideas Kanban** | Interactive Kanban board (`Backlog`, `In Progress`, `Ready to Post`) with AI brainstorming popover. |
-| `/ai-composer` | **AI Composer** | Full-fledged AI workspace for generating text captions and Flux AI images. |
+| `/ai-composer` | **AI Composer** | Full-fledged AI workspace for generating text captions and Cloudflare/Pollinations AI images. |
 | `/change-password` | **Account Settings** | Security preferences and password management. |
 
 ---
@@ -281,7 +329,15 @@ npm run dev
 - `picture`: String (Avatar URL)
 - `zernioProfileId`: String (Zernio Workspace ID)
 
-### 2. **Account Model** (`Account.ts`)
+### 2. **Idea Model** (`Idea.ts`)
+- `user`: ObjectId (Ref: `User`, Required)
+- `title`: String (Required)
+- `description`: String (Markdown/Text)
+- `columnId`: String (`backlog`, `in_progress`, `ready`)
+- `images`: Array of Strings (Cloudinary image URLs)
+- `tags`: Array of Strings (Categorization tags)
+
+### 3. **Account Model** (`Account.ts`)
 - `user`: ObjectId (Ref: `User`)
 - `platform`: Enum (`twitter`, `linkedin`, `facebook`, `instagram`, etc.)
 - `handle`: String
@@ -289,7 +345,7 @@ npm run dev
 - `status`: Enum (`connected`, `disconnected`)
 - `avatarUrl`: String
 
-### 3. **Post Model** (`Post.ts`)
+### 4. **Post Model** (`Post.ts`)
 - `user`: ObjectId (Ref: `User`)
 - `content`: String (Post body text)
 - `mediaUrl`: String (Cloudinary asset URL)
@@ -298,7 +354,7 @@ npm run dev
 - `scheduledFor`: Date
 - `status`: Enum (`draft`, `scheduled`, `published`, `failed`)
 
-### 4. **Generation Model** (`Generation.ts`)
+### 5. **Generation Model** (`Generation.ts`)
 - `user`: ObjectId (Ref: `User`)
 - `prompt`: String (Original prompt)
 - `content`: String (Generated post content)
@@ -307,7 +363,7 @@ npm run dev
 - `tone`: String
 - `theme`: String
 
-### 5. **ActivityLog Model** (`ActivityLog.ts`)
+### 6. **ActivityLog Model** (`ActivityLog.ts`)
 - `user`: ObjectId (Ref: `User`)
 - `actionType`: Enum (`POST_PUBLISHED`, `AI_REPLY`)
 - `description`: String
@@ -325,6 +381,17 @@ npm run dev
 | `POST` | `/api/auth/google` | Google OAuth login / account creation | 20 / 15 min | ❌ |
 | `PUT` | `/api/auth/change-password` | Change account password | 20 / 15 min | ✅ |
 
+### 💡 Ideas Kanban (`/api/ideas`)
+| Method | Endpoint | Description | Auth |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/ideas` | Fetch all user ideas | ✅ |
+| `POST` | `/api/ideas` | Create a new idea card | ✅ |
+| `PUT` | `/api/ideas/:id` | Update idea content, tags, or column status | ✅ |
+| `DELETE` | `/api/ideas/:id` | Delete an idea card | ✅ |
+| `POST` | `/api/ideas/upload` | Upload idea cover images to Cloudinary | ✅ |
+| `POST` | `/api/ideas/generate-ai` | Generate batch idea suggestions via AI | ✅ |
+| `POST` | `/api/ideas/ai-assistant` | AI assistant brainstorming for outlines/hooks | ✅ |
+
 ### 🔗 Social OAuth (`/api/oauth`)
 | Method | Endpoint | Description | Auth |
 | :--- | :--- | :--- | :--- |
@@ -338,11 +405,12 @@ npm run dev
 | `POST` | `/api/accounts` | Manually add a social account | ✅ |
 | `DELETE` | `/api/accounts/:id` | Disconnect and remove account | ✅ |
 
-### 📝 Posts & AI (`/api/posts`)
+### 📝 Posts & AI Composer (`/api/posts`)
 | Method | Endpoint | Description | Auth |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/posts` | Fetch all scheduled and published posts | ✅ |
 | `GET` | `/api/posts/generations` | Fetch history of AI generations | ✅ |
+| `DELETE` | `/api/posts/generations/:id` | Delete an AI generation from history | ✅ |
 | `POST` | `/api/posts/generate` | Generate post text (Gemini) & AI image (Cloudflare/Pollinations) | ✅ |
 | `POST` | `/api/posts` | Schedule a new post (supports multipart media upload) | ✅ |
 
@@ -350,6 +418,11 @@ npm run dev
 | Method | Endpoint | Description | Auth |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/activity` | Retrieve recent activity logs | ✅ |
+
+### 🩺 System (`/health`)
+| Method | Endpoint | Description | Auth |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/health` | Server uptime and health status check | ❌ |
 
 ---
 
@@ -363,7 +436,7 @@ npm run dev
 ### 2. **Image Generation Engine**
 - **Primary Tier**: Cloudflare Workers AI (`@cf/leonardo/lucid-origin`, dynamically configured via `CLOUDFLARE_IMAGE_MODEL`). Generates fast, high-quality images from content-aware prompts, uploaded to Cloudinary.
 - **Fallback Tier**: Pollinations.ai with randomized seeds, uploaded to Cloudinary (or direct URL fallback).
-- **Backend Logging**: Clearly outputs which provider generated each asset to server logs.
+- **Prompt Sanitization**: Automatic cleanup of AI-generated image prompts to remove markdown asterisks, conversational framing, and quotes.
 
 ---
 
@@ -406,7 +479,7 @@ cron.schedule("* * * * *", async () => { ... });
 - `npm run build`: Compile TypeScript via `tsc`.
 
 ### **Frontend (`/frontend`)**
-- `npm run dev`: Start Vite development server.
+- `npm run dev`: Start Vite development server on port 5173.
 - `npm run build`: TypeScript check & production build bundle via Vite.
 - `npm run preview`: Preview built production app.
 - `npm run lint`: Run ESLint checks.
