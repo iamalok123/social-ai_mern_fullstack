@@ -303,7 +303,7 @@ const AIComposer = () => {
                                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500 text-white font-medium text-sm transition-all cursor-pointer shadow-md shadow-red-500/20 active:scale-[0.99]"
                             >
                                 <CalendarDaysIcon className="size-4" />
-                                <span>Schedule Post</span>
+                                <span>Proceed to Schedule</span>
                                 <ArrowRightIcon className="size-4 ml-0.5" />
                             </button>
                         </div>

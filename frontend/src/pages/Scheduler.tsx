@@ -213,59 +213,64 @@ const Scheduler = () => {
 
             {/* TAB 1: CREATE POST */}
             {activeTab === "create" && (
-                <div className={`w-full flex flex-col lg:flex-row items-start justify-center gap-6 transition-all duration-300 ${selectedPlatforms.includes("twitter") ? "" : "max-w-4xl mx-auto"}`}>
+                <div className="w-full flex flex-col lg:flex-row items-start justify-center gap-6">
                     {/* Left Form Box */}
-                    <div className={`w-full transition-all duration-300 ${selectedPlatforms.includes("twitter") ? "flex-1 max-w-2xl" : "max-w-4xl mx-auto"}`}>
-                        <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-slate-200 dark:border-zinc-800 p-5 shadow-xs">
-                            <div className="flex items-center justify-between mb-3">
+                    <div className={`w-full transition-all duration-200 ${selectedPlatforms.length > 0 ? "flex-1 max-w-2xl" : "w-full max-w-3xl mx-auto"}`}>
+                        <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-slate-200 dark:border-zinc-800 p-5 sm:p-6 shadow-xs">
+                            {/* Card Header with Compose Post on Left & Platform Icons on Right (directly above Media Attachments) */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100 dark:border-zinc-800/80 mb-4">
                                 <div>
-                                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Compose Post</h2>
+                                    <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Compose Post</h2>
                                     <p className="text-xs text-slate-500 dark:text-zinc-400">Create and schedule content across your connected platforms</p>
+                                </div>
+
+                                {/* Platform Selector: Icons Only */}
+                                <div className="flex items-center gap-1.5 shrink-0" title="Select target platforms">
+                                    {PLATFORMS.map((p) => {
+                                        const active = selectedPlatforms.includes(p.id);
+                                        return (
+                                            <button
+                                                key={p.id}
+                                                type="button"
+                                                title={p.name || p.id}
+                                                onClick={() => togglePlatform(p.id)}
+                                                className={`p-2 rounded-xl border transition-all duration-150 cursor-pointer flex items-center justify-center ${
+                                                    active
+                                                        ? "bg-red-50 dark:bg-red-950/50 border-red-300 dark:border-red-800 text-red-500 dark:text-red-400 scale-105 shadow-xs"
+                                                        : "border-slate-200 dark:border-zinc-800 text-slate-400 dark:text-zinc-500 hover:border-slate-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-900 hover:text-slate-700 dark:hover:text-zinc-300"
+                                                }`}
+                                            >
+                                                <p.icon className="size-4" />
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
-                            <form className="space-y-3" onSubmit={handleSchedule}>
-                                {/* Platforms */}
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Platforms</label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {PLATFORMS.map((p) => {
-                                            const active = selectedPlatforms.includes(p.id);
-                                            return (
-                                                <button
-                                                    key={p.id}
-                                                    type="button"
-                                                    onClick={() => togglePlatform(p.id)}
-                                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border transition-all duration-150 cursor-pointer text-xs font-medium ${active ? "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-800 text-red-500 dark:text-red-400 scale-102 shadow-xs" : "border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-900"}`}
-                                                >
-                                                    <p.icon className="size-3.5" />
-                                                    <span className="capitalize">{p.name || p.id}</span>
-                                                </button>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-
+                            <form className="space-y-4" onSubmit={handleSchedule}>
                                 {/* 2-Column Main Form Body */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {/* Left Column: Content Textarea */}
-                                    <div className="flex flex-col">
-                                        <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">Content</label>
+                                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                                    {/* Left Column: Content Textarea (Spacious, 7 cols) */}
+                                    <div className="md:col-span-7 flex flex-col">
+                                        <div className="flex items-center justify-between mb-1.5">
+                                            <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+                                                Content
+                                            </label>
+                                            <span className={`text-xs font-medium ${content.length > 270 ? "text-red-500 dark:text-red-400" : "text-slate-400 dark:text-zinc-500"}`}>
+                                                {content.length}/280
+                                            </span>
+                                        </div>
                                         <textarea
                                             required
-                                            rows={5}
                                             placeholder="What do you want to share today?"
-                                            className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white text-sm placeholder-slate-400 dark:placeholder-zinc-500 outline-none resize-none focus:border-red-400 dark:focus:border-red-500/50 transition-colors flex-1"
+                                            className="w-full h-56 md:h-64 px-4 py-3 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white text-sm placeholder-slate-400 dark:placeholder-zinc-500 outline-none resize-none focus:border-red-400 dark:focus:border-red-500/50 transition-colors overflow-y-auto leading-relaxed"
                                             value={content}
                                             onChange={(e) => setContent(e.target.value)}
                                         />
-                                        <div className={`text-right text-xs mt-1 font-medium ${content.length > 270 ? "text-red-500 dark:text-red-400" : "text-slate-400 dark:text-zinc-500"}`}>
-                                            {content.length}/280
-                                        </div>
                                     </div>
 
-                                    {/* Right Column: Media Upload & Date/Time */}
-                                    <div className="flex flex-col justify-between gap-3">
+                                    {/* Right Column: Media Upload & Date/Time (5 cols) */}
+                                    <div className="md:col-span-5 flex flex-col justify-between gap-3">
                                         {/* Media Upload Section */}
                                         <div className="flex-1 flex flex-col">
                                             <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
@@ -274,8 +279,8 @@ const Scheduler = () => {
 
                                             {/* Display Pre-attached URLs and Newly Selected Files */}
                                             {(existingMediaUrls.length > 0 || mediaFile) ? (
-                                                <div className="space-y-2 flex-1">
-                                                    <div className="grid grid-cols-3 gap-2">
+                                                <div className="space-y-2 flex-1 flex flex-col justify-between">
+                                                    <div className="grid grid-cols-2 gap-2">
                                                         {/* Pre-existing / Loaded Image URLs */}
                                                         {existingMediaUrls.map((url, i) => (
                                                             <div key={i} className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 aspect-video shadow-xs">
@@ -328,15 +333,14 @@ const Scheduler = () => {
                                                             <PlusIcon className="size-3.5" />
                                                             <span>Add File</span>
                                                         </button>
-
                                                     </div>
                                                 </div>
                                             ) : (
                                                 /* Empty state drop area */
-                                                <div className="flex-1 flex flex-col gap-2">
-                                                    <label className="flex-1 flex flex-col items-center justify-center gap-1.5 py-4 px-4 border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-xl cursor-pointer hover:border-red-300 dark:hover:border-red-800/60 hover:bg-red-50/30 dark:hover:bg-red-950/20 transition-all group min-h-25">
+                                                <div className="flex-1 flex flex-col justify-center">
+                                                    <label className="flex-1 flex flex-col items-center justify-center gap-1.5 py-4 px-4 border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-xl cursor-pointer hover:border-red-300 dark:hover:border-red-800/60 hover:bg-red-50/30 dark:hover:bg-red-950/20 transition-all group min-h-27.5">
                                                         <UploadCloudIcon className="size-5 text-slate-400 group-hover:text-red-500 transition-colors" />
-                                                        <span className="text-xs font-medium text-slate-500 dark:text-zinc-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors">
+                                                        <span className="text-xs font-medium text-slate-500 dark:text-zinc-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors text-center">
                                                             Click to upload image or video
                                                         </span>
                                                         <input
@@ -346,8 +350,6 @@ const Scheduler = () => {
                                                             onChange={(e) => e.target.files?.[0] && setMediaFile(e.target.files[0])}
                                                         />
                                                     </label>
-
-
                                                 </div>
                                             )}
                                         </div>
@@ -373,11 +375,11 @@ const Scheduler = () => {
                                     </div>
                                 </div>
 
-                                {/* Submit */}
+                                {/* Submit Button */}
                                 <button
                                     type="submit"
                                     disabled={loading}
-                                    className="w-full flex items-center justify-center gap-2 py-2.5 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500 transition-all text-white text-sm rounded-xl cursor-pointer font-semibold shadow-xs disabled:opacity-50 mt-1"
+                                    className="w-full flex items-center justify-center gap-2 py-3 bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500 transition-all text-white text-sm rounded-xl cursor-pointer font-semibold shadow-md shadow-red-500/20 disabled:opacity-50 mt-1 active:scale-[0.99]"
                                 >
                                     {loading ? (
                                         <>
