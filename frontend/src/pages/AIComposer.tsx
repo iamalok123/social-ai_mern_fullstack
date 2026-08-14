@@ -1,12 +1,12 @@
 import { useEffect, useState, useRef } from "react";
-import { useLocation } from "react-router-dom";
-import { PLATFORMS } from "../assets/assets";
-import { ArrowRightIcon, CalendarIcon, ClockIcon, HistoryIcon, Loader2Icon, TimerIcon, Wand2Icon, XIcon, ChevronDownIcon, Trash2Icon } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { ArrowRightIcon, CalendarDaysIcon, HistoryIcon, Loader2Icon, Wand2Icon, XIcon, ChevronDownIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { api, API_PATHS } from "../api/axios";
 
 const AIComposer = () => {
     const location = useLocation();
+    const navigate = useNavigate();
     const [prompt, setPrompt] = useState("");
     const [tone, setTone] = useState("Professional");
     const [generateImage, setGenerateImage] = useState(true);
@@ -40,12 +40,8 @@ const AIComposer = () => {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Scheduling state
+    // Scheduling modal state
     const [activeScheduler, setActiveScheduler] = useState<any>(null);
-    const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
-    const [scheduledDate, setScheduledDate] = useState("");
-    const [scheduledTime, setScheduledTime] = useState("");
-    const [scheduling, setScheduling] = useState(false);
 
     const fetchGenerations = async () => {
         try {
@@ -90,38 +86,19 @@ const AIComposer = () => {
         }
     }
 
-    const handleSchedule = async () => {
+    const handleProceedToScheduler = () => {
         if (!activeScheduler) return;
-        if (selectedPlatforms.length === 0) {
-            toast.error("Select at least one platform");
-            return;
-        }
-        if (!scheduledDate || !scheduledTime) {
-            toast.error("Select date and time");
-            return;
-        }
-        const scheduledFor = new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
-        setScheduling(true);
-        try {
-            await api.post(API_PATHS.POSTS.SCHEDULE, {
-                content: activeScheduler.content,
-                mediaUrl: activeScheduler.mediaUrl,
-                mediaType: activeScheduler.mediaType,
-                platforms: selectedPlatforms,
-                scheduledFor,
-                status: "scheduled",
-            });
-            toast.success("AI Post scheduled!");
-            setScheduledDate("");
-            setScheduledTime("");
-            setSelectedPlatforms([]);
-            setActiveScheduler(null);
-        } catch (error: any) {
-            toast.error(error?.response?.data?.message || "Failed to schedule AI post. Please try again.");
-        } finally {
-            setScheduling(false);
-        }
-    }
+        const target = activeScheduler;
+        setActiveScheduler(null);
+        navigate("/schedule", {
+            state: {
+                content: target.content,
+                mediaUrl: target.mediaUrl || null,
+                prompt: target.prompt || "",
+            },
+        });
+        toast.success("Loaded AI generation into Post Scheduler");
+    };
 
     useEffect(() => {
         fetchGenerations();
@@ -320,58 +297,15 @@ const AIComposer = () => {
                             </div>
                         </div>
 
-                        <div className="px-5 sm:px-8 border-t bg-slate-50/50 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-800 py-4 sm:py-6 space-y-4 sm:space-y-6 shrink-0">
-                            {/* Options */}
-                            <div className="space-y-4 sm:space-y-6">
-                                <div>
-                                    <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-widest mb-3">Select Channels</label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {PLATFORMS.map((p) => {
-                                            const active = selectedPlatforms.includes(p.id);
-                                            return (
-                                                <button key={p.id} onClick={() => setSelectedPlatforms((prev) => (prev.includes(p.id) ? prev.filter((x) => x !== p.id) : [...prev, p.id]))}
-                                                    className={`p-2.5 rounded-lg border text-xs cursor-pointer transition-all ${active ? "bg-red-50 dark:bg-red-950/40 border-red-300 dark:border-red-800 text-red-500 dark:text-red-400 scale-103" : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-400 dark:text-zinc-500 hover:border-slate-300 dark:hover:border-zinc-700"}`}>
-                                                    <p.icon className="size-4.5" />
-                                                </button>
-                                            )
-                                        })}
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                                    <div className="relative">
-                                        <CalendarIcon className="size-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none" />
-                                        <input
-                                            type="date"
-                                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-white text-sm focus:outline-none focus:border-red-400 dark:focus:border-red-500/50 transition-all"
-                                            value={scheduledDate}
-                                            onChange={(e) => setScheduledDate(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="relative">
-                                        <ClockIcon className="size-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none" />
-                                        <input
-                                            type="time"
-                                            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-lg text-slate-900 dark:text-white text-sm focus:outline-none focus:border-red-400 dark:focus:border-red-500/50 transition-all"
-                                            value={scheduledTime}
-                                            onChange={(e) => setScheduledTime(e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
+                        <div className="px-5 sm:px-8 border-t bg-slate-50/50 dark:bg-zinc-900/50 border-slate-200 dark:border-zinc-800 py-4 sm:py-5 shrink-0">
                             <button
-                                onClick={handleSchedule}
-                                className="w-full flex items-center justify-center gap-2 py-3 rounded-lg bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500 text-white font-medium transition cursor-pointer shadow-xs disabled:opacity-50"
+                                onClick={handleProceedToScheduler}
+                                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-500 text-white font-medium text-sm transition-all cursor-pointer shadow-md shadow-red-500/20 active:scale-[0.99]"
                             >
-                                {scheduling ? (
-                                    <Loader2Icon className="size-4 animate-spin" />
-                                ) : (
-                                    <TimerIcon className="size-4" />
-                                )}
-                                Schedule Post
+                                <CalendarDaysIcon className="size-4" />
+                                <span>Schedule Post</span>
+                                <ArrowRightIcon className="size-4 ml-0.5" />
                             </button>
-
                         </div>
                     </div>
                 </div>

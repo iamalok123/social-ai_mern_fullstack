@@ -67,7 +67,7 @@ const Scheduler = () => {
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Read location state when navigated from Kanban / Ideas board
+    // Read location state when navigated from Kanban / Ideas board or AI Composer
     useEffect(() => {
         if (location.state) {
             const { content: stateContent, images, mediaUrl, title, description } = location.state as any;
@@ -86,9 +86,9 @@ const Scheduler = () => {
                 urls.push(mediaUrl);
             }
 
-            if (urls.length > 0) {
-                setExistingMediaUrls(urls);
-            }
+            setExistingMediaUrls(urls);
+            setMediaFile(null);
+            setActiveTab("create");
         }
     }, [location.state]);
 
