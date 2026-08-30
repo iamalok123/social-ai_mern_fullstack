@@ -259,9 +259,10 @@ export const schedulePost = async (req: AuthRequest, res: Response): Promise<voi
         let mediaType: "image" | "video" | undefined = req.body.mediaType;
 
         if (req.file) {
+            const isVideoFile = req.file.mimetype.startsWith("video/");
             const result = await new Promise<any>((resolve, reject) => {
                 const stream = cloudinary.uploader.upload_stream({
-                    resource_type: "auto",
+                    resource_type: isVideoFile ? "video" : "auto",
                     folder: "social-ai"
                 }, (error, result) => {
                     if (error) reject(error);
@@ -270,7 +271,11 @@ export const schedulePost = async (req: AuthRequest, res: Response): Promise<voi
                 stream.end(req.file!.buffer);
             });
             mediaUrl = result.secure_url;
-            mediaType = result.resource_type === "video" ? "video" : "image";
+            mediaType = result.resource_type === "video" || isVideoFile ? "video" : "image";
+            console.log(`📹 [POST CONTROLLER] Media uploaded to Cloudinary: ${mediaUrl} (Type: ${mediaType})`);
+        } else if (mediaUrl && !mediaType) {
+            const isVideoUrl = /\.(mp4|webm|mov|mkv|ogg)$/i.test(mediaUrl) || mediaUrl.includes("/video/upload/");
+            mediaType = isVideoUrl ? "video" : "image";
         }
 
         const post = await Post.create({
@@ -280,7 +285,7 @@ export const schedulePost = async (req: AuthRequest, res: Response): Promise<voi
             mediaUrl,
             mediaType,
             scheduledFor,
-            status,
+            status: status || "scheduled",
         });
 
         res.status(201).json(post);

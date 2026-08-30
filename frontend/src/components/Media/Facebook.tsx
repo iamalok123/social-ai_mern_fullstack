@@ -25,6 +25,7 @@ export interface FacebookProps {
     content?: string;
     mediaUrl?: string | string[] | null;
     mediaUrls?: string[];
+    mediaType?: "image" | "video" | null;
     user?: FacebookUser | null;
     linkPreview?: FacebookLinkPreview | null;
 }
@@ -33,6 +34,7 @@ export const FacebookPostPreview: React.FC<FacebookProps> = ({
     content = "",
     mediaUrl,
     mediaUrls,
+    mediaType,
     user,
     linkPreview
 }) => {
@@ -97,6 +99,14 @@ export const FacebookPostPreview: React.FC<FacebookProps> = ({
         });
     };
 
+    const isVideo = mediaType === "video" || (
+        mediaType !== "image" && mediaList.length > 0 && (
+            /\.(mp4|webm|mov|ogg|mkv)$/i.test(mediaList[0] || "") ||
+            (mediaList[0] || "").includes("/video/upload/") ||
+            (mediaList[0] || "").startsWith("blob:")
+        )
+    );
+
     return (
         <div className="w-full max-w-md bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md text-slate-900 dark:text-zinc-100 font-sans transition-all overflow-hidden text-left">
             {/* Top Author Header */}
@@ -140,8 +150,10 @@ export const FacebookPostPreview: React.FC<FacebookProps> = ({
             {/* Media Area */}
             {mediaList.length > 0 && (
                 <div className="mt-2 bg-slate-100 dark:bg-zinc-800 border-t border-slate-200 dark:border-zinc-800">
-                    {mediaList[0].match(/\.(mp4|webm|ogg)$/i) || (mediaList[0].startsWith("blob:") && mediaList[0].includes("video")) ? (
-                        <video src={mediaList[0]} controls className="w-full aspect-video object-cover" />
+                    {isVideo ? (
+                        <div className="relative w-full aspect-video bg-black flex items-center justify-center">
+                            <video src={mediaList[0]} controls className="w-full h-full object-cover" />
+                        </div>
                     ) : (
                         <img src={mediaList[0]} alt="Facebook Post Media" className="w-full max-h-96 object-cover" />
                     )}

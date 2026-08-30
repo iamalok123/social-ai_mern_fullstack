@@ -17,6 +17,7 @@ export interface InstagramProps {
     content?: string;
     mediaUrl?: string | string[] | null;
     mediaUrls?: string[];
+    mediaType?: "image" | "video" | null;
     user?: InstagramUser | null;
 }
 
@@ -24,6 +25,7 @@ export const InstagramPostPreview: React.FC<InstagramProps> = ({
     content = "",
     mediaUrl,
     mediaUrls,
+    mediaType,
     user
 }) => {
     const displayName = user?.name || "Vedant Mahajan";
@@ -78,6 +80,14 @@ export const InstagramPostPreview: React.FC<InstagramProps> = ({
         });
     };
 
+    const isVideo = mediaType === "video" || (
+        mediaType !== "image" && mediaList.length > 0 && (
+            /\.(mp4|webm|mov|ogg|mkv)$/i.test(mediaList[0] || "") ||
+            (mediaList[0] || "").includes("/video/upload/") ||
+            (mediaList[0] || "").startsWith("blob:")
+        )
+    );
+
     return (
         <div className="w-full max-w-77.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md text-slate-900 dark:text-zinc-100 font-sans transition-all overflow-hidden text-left">
             {/* Top Author Header (Matching Instagram Mockup) */}
@@ -120,9 +130,9 @@ export const InstagramPostPreview: React.FC<InstagramProps> = ({
             </div>
 
             {/* Media Area */}
-            <div className="w-full aspect-square max-h-44 sm:max-h-48 bg-slate-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden">
+            <div className="w-full aspect-square max-h-48 bg-slate-100 dark:bg-zinc-800 flex items-center justify-center overflow-hidden">
                 {mediaList.length > 0 ? (
-                    mediaList[0].match(/\.(mp4|webm|ogg)$/i) || (mediaList[0].startsWith("blob:") && mediaList[0].includes("video")) ? (
+                    isVideo ? (
                         <video src={mediaList[0]} controls className="w-full h-full object-cover" />
                     ) : (
                         <img src={mediaList[0]} alt="Instagram Post Media" className="w-full h-full object-cover" />

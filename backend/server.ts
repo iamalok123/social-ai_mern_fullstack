@@ -66,10 +66,13 @@ initScheduler();
 // Global Error Handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     console.error(err);
-    res.status(500).send(err?.response?.data?.message || err?.message)
-})
-
-app.listen(port, () => {
-    console.log(`Server is running at http://localhost:${port}`);
+    res.status(500).send(err?.response?.data?.message || err?.message);
 });
-// Trigger nodemon reload for new routes
+
+if (process.env.NODE_ENV !== "test") {
+    app.listen(port, () => {
+        console.log(`Server is running at http://localhost:${port}`);
+    });
+}
+
+export default app;

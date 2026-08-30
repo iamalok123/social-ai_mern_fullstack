@@ -29,6 +29,7 @@ export interface LinkedInProps {
     content?: string;
     mediaUrl?: string | string[] | null;
     mediaUrls?: string[];
+    mediaType?: "image" | "video" | null;
     user?: LinkedInUser | null;
     linkPreview?: LinkedInLinkPreview | null;
 }
@@ -61,6 +62,7 @@ export const LinkedInPostPreview: React.FC<LinkedInProps> = ({
     content = "",
     mediaUrl,
     mediaUrls,
+    mediaType,
     user,
     linkPreview
 }) => {
@@ -134,12 +136,20 @@ export const LinkedInPostPreview: React.FC<LinkedInProps> = ({
 
         if (mediaList.length === 1) {
             const single = mediaList[0];
-            const isVideo = single.match(/\.(mp4|webm|ogg)$/i) || (single.startsWith("blob:") && single.includes("video"));
+            const isVideo = mediaType === "video" || (
+                mediaType !== "image" && Boolean(single) && (
+                    /\.(mp4|webm|mov|ogg|mkv)$/i.test(single) ||
+                    single.includes("/video/upload/") ||
+                    single.startsWith("blob:")
+                )
+            );
 
             return (
                 <div className="w-full overflow-hidden bg-slate-100 dark:bg-zinc-800">
                     {isVideo ? (
-                        <video src={single} controls className="w-full aspect-video object-cover" />
+                        <div className="relative w-full aspect-video bg-black flex items-center justify-center">
+                            <video src={single} controls className="w-full h-full object-cover" />
+                        </div>
                     ) : (
                         <img
                             src={single}

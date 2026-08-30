@@ -18,7 +18,9 @@ import {
     UploadCloudIcon,
     PlusIcon,
     ChevronLeftIcon,
-    ChevronRightIcon
+    ChevronRightIcon,
+    ImageIcon,
+    FilmIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, API_PATHS } from "../api/axios";
@@ -58,14 +60,29 @@ const Scheduler = () => {
         setActivePreviewIndex((prev) => (prev < selectedPlatforms.length - 1 ? prev + 1 : 0));
     };
 
-    // Attached image URLs from Idea card or URL input
+    // Attached image/video URLs from Idea card or URL input
     const [existingMediaUrls, setExistingMediaUrls] = useState<string[]>([]);
     // Newly uploaded File object
     const [mediaFile, setMediaFile] = useState<File | null>(null);
+    const [mediaFileUrl, setMediaFileUrl] = useState<string | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
 
     const [loading, setLoading] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Manage blob object URL lifecycle cleanly
+    useEffect(() => {
+        if (!mediaFile) {
+            setMediaFileUrl(null);
+            return;
+        }
+        const objectUrl = URL.createObjectURL(mediaFile);
+        setMediaFileUrl(objectUrl);
+        return () => {
+            URL.revokeObjectURL(objectUrl);
+        };
+    }, [mediaFile]);
 
     // Read location state when navigated from Kanban / Ideas board or AI Composer
     useEffect(() => {
@@ -110,8 +127,15 @@ const Scheduler = () => {
     const scheduled = posts.filter((p) => p.status === "scheduled");
     const published = posts.filter((p) => p.status === "published");
 
+    // Detect media type: video or image
+    const activeMediaType: "image" | "video" | null = mediaFile
+        ? (mediaFile.type.startsWith("video/") ? "video" : "image")
+        : existingMediaUrls.length > 0
+            ? (/\.(mp4|webm|mov|mkv|ogg)$/i.test(existingMediaUrls[0]) || existingMediaUrls[0].includes("/video/upload/") ? "video" : "image")
+            : null;
+
     const previewMediaUrl = mediaFile
-        ? URL.createObjectURL(mediaFile)
+        ? mediaFileUrl
         : existingMediaUrls.length > 0
             ? existingMediaUrls[0]
             : null;
@@ -126,7 +150,32 @@ const Scheduler = () => {
         setExistingMediaUrls((prev) => prev.filter((_, i) => i !== index));
     };
 
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(true);
+    };
 
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragging(false);
+        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            const file = e.dataTransfer.files[0];
+            if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
+                setMediaFile(file);
+                toast.success(`Loaded ${file.type.startsWith("video/") ? "video" : "image"}: ${file.name}`);
+            } else {
+                toast.error("Please upload a valid image or video file.");
+            }
+        }
+    };
 
     const handleSchedule = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -153,9 +202,11 @@ const Scheduler = () => {
 
         if (mediaFile) {
             formData.append("media", mediaFile);
+            formData.append("mediaType", mediaFile.type.startsWith("video/") ? "video" : "image");
         } else if (existingMediaUrls.length > 0) {
             formData.append("mediaUrl", existingMediaUrls[0]);
-            formData.append("mediaType", "image");
+            const isVid = /\.(mp4|webm|mov|mkv|ogg)$/i.test(existingMediaUrls[0]) || existingMediaUrls[0].includes("/video/upload/");
+            formData.append("mediaType", isVid ? "video" : "image");
         }
 
         setLoading(true);
@@ -273,51 +324,121 @@ const Scheduler = () => {
                                     <div className="md:col-span-5 flex flex-col justify-between gap-3">
                                         {/* Media Upload Section */}
                                         <div className="flex-1 flex flex-col">
-                                            <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider mb-1.5">
-                                                Media Attachments
-                                            </label>
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+                                                    Media Attachment
+                                                </label>
+                                                {activeMediaType && (
+                                                    <span className="flex items-center gap-1 text-[11px] font-semibold text-red-500 dark:text-red-400 uppercase bg-red-50 dark:bg-red-950/40 px-2 py-0.5 rounded-md border border-red-200 dark:border-red-900/50">
+                                                        {activeMediaType === "video" ? <FilmIcon className="size-3" /> : <ImageIcon className="size-3" />}
+                                                        {activeMediaType}
+                                                    </span>
+                                                )}
+                                            </div>
 
                                             {/* Display Pre-attached URLs and Newly Selected Files */}
                                             {(existingMediaUrls.length > 0 || mediaFile) ? (
                                                 <div className="space-y-2 flex-1 flex flex-col justify-between">
-                                                    <div className="grid grid-cols-2 gap-2">
-                                                        {/* Pre-existing / Loaded Image URLs */}
-                                                        {existingMediaUrls.map((url, i) => (
-                                                            <div key={i} className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 aspect-video shadow-xs">
-                                                                <img src={url} alt="" className="w-full h-full object-cover" />
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => handleRemoveExistingMedia(i)}
-                                                                    className="absolute top-1 right-1 p-1 bg-slate-900/80 hover:bg-red-600 text-white rounded-full transition-colors cursor-pointer"
-                                                                    title="Remove image"
-                                                                >
-                                                                    <XIcon className="size-3" />
-                                                                </button>
-                                                            </div>
-                                                        ))}
-
-                                                        {/* Newly Uploaded File */}
-                                                        {mediaFile && (
-                                                            <div className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 aspect-video shadow-xs">
-                                                                {mediaFile.type.startsWith("image/") ? (
-                                                                    <img src={URL.createObjectURL(mediaFile)} alt="preview" className="w-full h-full object-cover" />
+                                                    {/* Single Item: Full-Width Clean Card */}
+                                                    {(!mediaFile && existingMediaUrls.length > 1) ? (
+                                                        /* Multi-Image Grid (only when >1 existing image URLs) */
+                                                        <div className="grid grid-cols-2 gap-2 h-44 overflow-y-auto p-0.5">
+                                                            {existingMediaUrls.map((url, i) => {
+                                                                const isUrlVideo = /\.(mp4|webm|mov|mkv|ogg)$/i.test(url) || url.includes("/video/upload/");
+                                                                return (
+                                                                    <div key={i} className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-900 aspect-video shadow-xs">
+                                                                        {isUrlVideo ? (
+                                                                            <video src={url} controls className="w-full h-full object-cover" />
+                                                                        ) : (
+                                                                            <img src={url} alt="" className="w-full h-full object-cover" />
+                                                                        )}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => handleRemoveExistingMedia(i)}
+                                                                            className="absolute top-1.5 right-1.5 p-1 bg-black/70 hover:bg-red-600 text-white rounded-full transition-colors cursor-pointer shadow-xs"
+                                                                            title="Remove media"
+                                                                        >
+                                                                            <XIcon className="size-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    ) : (
+                                                        /* Primary Full-Width Preview Card (for 1 uploaded video/image or 1 existing URL) */
+                                                        <div className="relative group w-full h-44 sm:h-48 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-950 dark:bg-zinc-950 shadow-xs flex items-center justify-center">
+                                                            {/* Newly uploaded file */}
+                                                            {mediaFile ? (
+                                                                mediaFile.type.startsWith("video/") ? (
+                                                                    <video
+                                                                        src={mediaFileUrl || undefined}
+                                                                        className="w-full h-full object-contain bg-black"
+                                                                        controls
+                                                                        playsInline
+                                                                    />
                                                                 ) : (
-                                                                    <video src={URL.createObjectURL(mediaFile)} className="w-full h-full object-cover" controls />
-                                                                )}
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => setMediaFile(null)}
-                                                                    className="absolute top-1 right-1 p-1 bg-slate-900/80 hover:bg-red-600 text-white rounded-full transition-colors cursor-pointer"
-                                                                    title="Remove file"
-                                                                >
-                                                                    <XIcon className="size-3" />
-                                                                </button>
-                                                            </div>
-                                                        )}
-                                                    </div>
+                                                                    <img
+                                                                        src={mediaFileUrl || ""}
+                                                                        alt="preview"
+                                                                        className="w-full h-full object-cover"
+                                                                    />
+                                                                )
+                                                            ) : existingMediaUrls.length > 0 ? (
+                                                                (/\.(mp4|webm|mov|mkv|ogg)$/i.test(existingMediaUrls[0]) || existingMediaUrls[0].includes("/video/upload/")) ? (
+                                                                    <video
+                                                                        src={existingMediaUrls[0]}
+                                                                        controls
+                                                                        playsInline
+                                                                        className="w-full h-full object-contain bg-black"
+                                                                    />
+                                                                ) : (
+                                                                    <img
+                                                                        src={existingMediaUrls[0]}
+                                                                        alt="preview"
+                                                                        className="w-full h-full object-cover"
+                                                                    />
+                                                                )
+                                                            ) : null}
 
-                                                    {/* Action buttons to add MORE media */}
-                                                    <div className="flex items-center gap-2 pt-1">
+                                                            {/* Remove Button with frosted backdrop */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    if (mediaFile) {
+                                                                        setMediaFile(null);
+                                                                    } else {
+                                                                        setExistingMediaUrls([]);
+                                                                    }
+                                                                }}
+                                                                className="absolute top-2.5 right-2.5 p-1.5 bg-black/60 hover:bg-red-600 text-white rounded-full transition-all backdrop-blur-md cursor-pointer shadow-md z-20 active:scale-95"
+                                                                title="Remove media"
+                                                            >
+                                                                <XIcon className="size-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                    {/* File info and button to replace file */}
+                                                    <div className="flex items-center justify-between gap-2 px-0.5 pt-0.5">
+                                                        <div className="min-w-0 flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400 truncate">
+                                                            {mediaFile ? (
+                                                                <>
+                                                                    {mediaFile.type.startsWith("video/") ? (
+                                                                        <FilmIcon className="size-3.5 text-red-500 shrink-0" />
+                                                                    ) : (
+                                                                        <ImageIcon className="size-3.5 text-sky-500 shrink-0" />
+                                                                    )}
+                                                                    <span className="font-medium text-slate-700 dark:text-zinc-200 truncate max-w-44 sm:max-w-56">
+                                                                        {mediaFile.name}
+                                                                    </span>
+                                                                    <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono shrink-0">
+                                                                        ({(mediaFile.size / (1024 * 1024)).toFixed(1)} MB)
+                                                                    </span>
+                                                                </>
+                                                            ) : (
+                                                                <span>{existingMediaUrls.length} attached item(s)</span>
+                                                            )}
+                                                        </div>
                                                         <input
                                                             type="file"
                                                             ref={fileInputRef}
@@ -328,21 +449,37 @@ const Scheduler = () => {
                                                         <button
                                                             type="button"
                                                             onClick={() => fileInputRef.current?.click()}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-colors cursor-pointer"
+                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-colors cursor-pointer shrink-0 shadow-2xs"
                                                         >
                                                             <PlusIcon className="size-3.5" />
-                                                            <span>Add File</span>
+                                                            <span>Replace</span>
                                                         </button>
                                                     </div>
                                                 </div>
                                             ) : (
-                                                /* Empty state drop area */
-                                                <div className="flex-1 flex flex-col justify-center">
-                                                    <label className="flex-1 flex flex-col items-center justify-center gap-1.5 py-4 px-4 border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-xl cursor-pointer hover:border-red-300 dark:hover:border-red-800/60 hover:bg-red-50/30 dark:hover:bg-red-950/20 transition-all group min-h-27.5">
-                                                        <UploadCloudIcon className="size-5 text-slate-400 group-hover:text-red-500 transition-colors" />
-                                                        <span className="text-xs font-medium text-slate-500 dark:text-zinc-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors text-center">
-                                                            Click to upload image or video
-                                                        </span>
+                                                /* Empty state drag & drop area */
+                                                <div
+                                                    className="flex-1 flex flex-col justify-center"
+                                                    onDragOver={handleDragOver}
+                                                    onDragLeave={handleDragLeave}
+                                                    onDrop={handleDrop}
+                                                >
+                                                    <label className={`flex-1 flex flex-col items-center justify-center gap-2 py-6 px-4 border-2 border-dashed rounded-2xl cursor-pointer transition-all group min-h-44 ${
+                                                        isDragging
+                                                            ? "border-red-500 bg-red-50/50 dark:bg-red-950/30 scale-[1.01]"
+                                                            : "border-slate-200 dark:border-zinc-800 hover:border-red-400 dark:hover:border-red-700/60 hover:bg-red-50/20 dark:hover:bg-red-950/10"
+                                                    }`}>
+                                                        <div className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 group-hover:bg-red-100 dark:group-hover:bg-red-950/50 transition-colors border border-slate-200/60 dark:border-zinc-800">
+                                                            <UploadCloudIcon className="size-5 text-slate-400 group-hover:text-red-500 transition-colors" />
+                                                        </div>
+                                                        <div className="text-center">
+                                                            <span className="text-xs font-semibold text-slate-700 dark:text-zinc-200 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors block">
+                                                                Click or drag & drop video or image
+                                                            </span>
+                                                            <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 block">
+                                                                MP4, MOV, WEBM, PNG, JPG up to 100MB
+                                                            </span>
+                                                        </div>
                                                         <input
                                                             type="file"
                                                             accept="image/*,video/*"
@@ -467,16 +604,16 @@ const Scheduler = () => {
                             {/* Selected Platform Preview Component */}
                             <div className="w-full flex justify-center">
                                 {currentPlatformId === "twitter" && (
-                                    <TwitterPostPreview content={content} mediaUrl={previewMediaUrl} user={user} />
+                                    <TwitterPostPreview content={content} mediaUrl={previewMediaUrl} mediaType={activeMediaType} user={user} />
                                 )}
                                 {currentPlatformId === "linkedin" && (
-                                    <LinkedInPostPreview content={content} mediaUrl={previewMediaUrl} user={user} />
+                                    <LinkedInPostPreview content={content} mediaUrl={previewMediaUrl} mediaType={activeMediaType} user={user} />
                                 )}
                                 {currentPlatformId === "facebook" && (
-                                    <FacebookPostPreview content={content} mediaUrl={previewMediaUrl} user={user} />
+                                    <FacebookPostPreview content={content} mediaUrl={previewMediaUrl} mediaType={activeMediaType} user={user} />
                                 )}
                                 {currentPlatformId === "instagram" && (
-                                    <InstagramPostPreview content={content} mediaUrl={previewMediaUrl} user={user} />
+                                    <InstagramPostPreview content={content} mediaUrl={previewMediaUrl} mediaType={activeMediaType} user={user} />
                                 )}
                             </div>
                         </div>
@@ -510,11 +647,16 @@ const Scheduler = () => {
                                                 })}
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                {post.mediaType &&
-                                                    <span className="text-xs bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-800 px-2 py-0.5 rounded-md font-semibold capitalize">
-                                                        {post.mediaType}
+                                                {post.mediaType && (
+                                                    <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md font-semibold border ${
+                                                        post.mediaType === "video"
+                                                            ? "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50"
+                                                            : "bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800"
+                                                    }`}>
+                                                        {post.mediaType === "video" ? <FilmIcon className="size-3" /> : <ImageIcon className="size-3" />}
+                                                        <span className="capitalize">{post.mediaType}</span>
                                                     </span>
-                                                }
+                                                )}
                                                 <span className="text-xs text-slate-400 dark:text-zinc-500">
                                                     {new Date(post.scheduledFor).toLocaleString()}
                                                 </span>
@@ -550,11 +692,16 @@ const Scheduler = () => {
                                                 })}
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                {post.mediaType &&
-                                                    <span className="text-xs bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-800 px-2 py-0.5 rounded-md font-semibold capitalize">
-                                                        {post.mediaType}
+                                                {post.mediaType && (
+                                                    <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md font-semibold border ${
+                                                        post.mediaType === "video"
+                                                            ? "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50"
+                                                            : "bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800"
+                                                    }`}>
+                                                        {post.mediaType === "video" ? <FilmIcon className="size-3" /> : <ImageIcon className="size-3" />}
+                                                        <span className="capitalize">{post.mediaType}</span>
                                                     </span>
-                                                }
+                                                )}
                                                 <span className="text-xs text-slate-400 dark:text-zinc-500">
                                                     {new Date(post.updatedAt).toLocaleString()}
                                                 </span>

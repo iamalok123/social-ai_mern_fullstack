@@ -12,6 +12,7 @@ import {
 interface TwitterProps {
     content: string;
     mediaUrl?: string | null;
+    mediaType?: "image" | "video" | null;
     user?: {
         name?: string;
         email?: string;
@@ -27,11 +28,19 @@ const VerifiedBadge = () => (
     </svg>
 );
 
-export const TwitterPostPreview: React.FC<TwitterProps> = ({ content, mediaUrl, user }) => {
+export const TwitterPostPreview: React.FC<TwitterProps> = ({ content, mediaUrl, mediaType, user }) => {
     const displayName = user?.name || "Vedant Mahajan";
     const username = user?.name
         ? `@${user.name.toLowerCase().replace(/[^a-z0-9]/g, "")}`
         : "@vedx09";
+
+    const isVideo = mediaType === "video" || (
+        mediaType !== "image" && Boolean(mediaUrl) && (
+            /\.(mp4|webm|mov|ogg|mkv)$/i.test(mediaUrl || "") ||
+            (mediaUrl || "").includes("/video/upload/") ||
+            (mediaUrl || "").startsWith("blob:")
+        )
+    );
 
     // Formats post body text to detect and highlight URLs, @mentions, and #hashtags in Twitter Sky Blue
     const renderFormattedContent = (text: string) => {
@@ -122,8 +131,10 @@ export const TwitterPostPreview: React.FC<TwitterProps> = ({ content, mediaUrl, 
             {/* Media Attachment (If Image/Video attached) */}
             {mediaUrl && (
                 <div className="mt-3.5 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 shadow-xs">
-                    {mediaUrl.match(/\.(mp4|webm|ogg)$/i) || mediaUrl.startsWith("blob:") && mediaUrl.includes("video") ? (
-                        <video src={mediaUrl} controls className="w-full aspect-video object-cover" />
+                    {isVideo ? (
+                        <div className="relative w-full aspect-video bg-black flex items-center justify-center">
+                            <video src={mediaUrl} controls className="w-full h-full object-cover" />
+                        </div>
                     ) : (
                         <img
                             src={mediaUrl}

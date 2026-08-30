@@ -6,94 +6,109 @@ import { ActivityLog } from "../models/ActivityLog.js";
 import zernio from "../config/zernio.js";
 
 
+export const evaluateScheduledPosts = async () => {
+    // Skip run if MongoDB is temporarily disconnected
+    if (mongoose.connection.readyState !== 1) {
+        console.warn("⚠️ [SCHEDULER] MongoDB is currently disconnected. Skipping tick until reconnected.");
+        return { count: 0, message: "MongoDB disconnected" };
+    }
+
+    try {
+        const now = new Date();
+        const postsToPublish = await Post.find({
+            status: "scheduled",
+            scheduledFor: { $lte: now }
+        });
+
+        let publishedCount = 0;
+        let failedCount = 0;
+
+        for (const post of postsToPublish) {
+            try {
+                const accounts = await Account.find({
+                    user: post.user,
+                    platform: { $in: post.platforms },
+                    status: "connected",
+                    zernioAccountId: { $exists: true }
+                });
+
+                if (accounts.length === 0) {
+                    console.log(`No connected zernio accounts found for post ${post._id}`);
+                    continue;
+                }
+
+                const zernioPlatforms = accounts.map((acc) => ({
+                    platform: acc.platform as any,
+                    accountId: acc.zernioAccountId!
+                }));
+
+                const resolvedMediaType = post.mediaType || (
+                    post.mediaUrl ? (/\.(mp4|webm|mov|mkv|ogg)$/i.test(post.mediaUrl) || post.mediaUrl.includes("/video/") ? "video" : "image") : undefined
+                );
+
+                const payload = {
+                    content: post.content,
+                    publishNow: true,
+                    ...(post.mediaUrl ? {
+                        mediaItems: [{
+                            type: resolvedMediaType || "image",
+                            url: post.mediaUrl
+                        }]
+                    } : {}),
+                    platforms: zernioPlatforms,
+                };
+
+                console.log(`Publishing post ${post._id} to Zernio (Type: ${resolvedMediaType || "text"}) with media: ${post.mediaUrl || "none"}`);
+
+                const response = await zernio.posts.createPost({
+                    body: payload as any
+                });
+
+                const publishedPost = (response.data as any)?.post || response.data;
+
+                if (!publishedPost) {
+                    throw new Error("Failed to get post object from Zernio response");
+                }
+
+                console.log(`Zernio post created: ${publishedPost._id || publishedPost.id}`);
+
+                post.status = "published";
+                await post.save();
+                publishedCount++;
+
+                await ActivityLog.create({
+                    user: post.user,
+                    actionType: "POST_PUBLISHED",
+                    description: `Published post to ${accounts.map((a) => a.platform).join(", ")}`,
+                    relatedPost: post._id,
+                });
+            } catch (err: any) {
+                console.error(`Failed to publish post ${post._id} :`, err?.response?.data || err?.message);
+                post.status = "failed";
+                await post.save();
+                failedCount++;
+            }
+        }
+
+        if (postsToPublish.length > 0) {
+            console.log(`Evaluated ${postsToPublish.length} posts at ${now.toISOString()} (Published: ${publishedCount}, Failed: ${failedCount})`);
+        }
+
+        return { count: postsToPublish.length, published: publishedCount, failed: failedCount };
+    } catch (error: any) {
+        if (error?.name === "MongoServerSelectionError" || error?.code === "ENOTFOUND") {
+            console.warn("⚠️ [SCHEDULER] Skipping cron task due to temporary MongoDB network disconnection.");
+        } else {
+            console.error("Error in scheduler cron task:", error);
+        }
+        return { error: error?.message || "Scheduler error" };
+    }
+};
+
 export const initScheduler = () => {
     console.log("Scheduler service initialized");
-
     cron.schedule("* * * * *", async () => {
-        // Skip run if MongoDB is temporarily disconnected
-        if (mongoose.connection.readyState !== 1) {
-            console.warn("⚠️ [SCHEDULER] MongoDB is currently disconnected. Skipping cron tick until reconnected.");
-            return;
-        }
-
-        try {
-            const now = new Date();
-            const postsToPublish = await Post.find({
-                status: "scheduled", scheduledFor:
-                    { $lte: now }
-            });
-
-            for (const post of postsToPublish) {
-                try {
-                    const accounts = await Account.find({
-                        user: post.user,
-                        platform: { $in: post.platforms },
-                        status: "connected",
-                        zernioAccountId: { $exists: true }
-                    })
-
-                    if (accounts.length === 0) {
-                        console.log(`No connected zernio accounts found for post ${post._id}`);
-                        continue;
-                    }
-
-                    const zernioPlatforms = accounts.map((acc) => ({
-                        platform: acc.platform as any,
-                        accountId: acc.zernioAccountId!
-                    }))
-
-                    const payload = {
-                        content: post.content,
-                        publishNow: true,
-                        ...(post.mediaUrl ? {
-                            mediaItems: [{
-                                type: post.mediaType || "image",
-                                url: post.mediaUrl
-                            }]
-                        } : {}),
-                        platforms: zernioPlatforms,
-                    }
-
-                    console.log(`Publishing post ${post._id} to Zernio with media: ${post.mediaUrl || "none"}`)
-
-                    const response = await zernio.posts.createPost({
-                        body: payload as any
-                    });
-
-                    const publishedPost = (response.data as any)?.post || response.data;
-
-                    if (!publishedPost) {
-                        throw new Error("Failed to get post object from Zernio response");
-                    }
-
-                    console.log(`Zernio post created: ${publishedPost._id || publishedPost.id}`);
-
-                    post.status = "published";
-                    await post.save();
-
-                    await ActivityLog.create({
-                        user: post.user,
-                        actionType: "POST_PUBLISHED",
-                        description: `Published post to ${accounts.map((a) => a.platform).join(", ")}`,
-                        relatedPost: post._id,
-                    })
-                } catch (err: any) {
-                    console.error(`Failed to publish post ${post._id} :`, err?.response?.data || err?.message);
-                    post.status = "failed";
-                    await post.save();
-                }
-            }
-
-            if (postsToPublish.length > 0) {
-                console.log(`Evaluated ${postsToPublish.length} posts at ${now.toISOString()}`);
-            }
-        } catch (error: any) {
-            if (error?.name === "MongoServerSelectionError" || error?.code === "ENOTFOUND") {
-                console.warn("⚠️ [SCHEDULER] Skipping cron task due to temporary MongoDB network disconnection.");
-            } else {
-                console.error("Error in scheduler cron task:", error);
-            }
-        }
-    })
-}
+        await evaluateScheduledPosts();
+    });
+};
 
