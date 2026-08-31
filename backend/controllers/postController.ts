@@ -191,16 +191,19 @@ export const deleteGeneration = async (req: AuthRequest, res: Response): Promise
             return;
         }
 
-        // Delete associated image from Cloudinary if hosted on Cloudinary
+        // Delete associated image from Cloudinary if hosted on Cloudinary and no active post is using it
         if (generation.mediaUrl) {
             const publicId = extractCloudinaryPublicId(generation.mediaUrl);
-            if (publicId) {
+            const isUsedInPost = await Post.exists({ mediaUrl: generation.mediaUrl });
+            if (publicId && !isUsedInPost) {
                 try {
                     const cloudRes = await cloudinary.uploader.destroy(publicId);
                     console.log(`🗑️ [CLOUDINARY DELETED] Public ID: ${publicId}, Result:`, cloudRes);
                 } catch (cloudErr: any) {
                     console.warn(`⚠️ [CLOUDINARY DELETE ERROR] Failed to delete ${publicId}:`, cloudErr?.message || cloudErr);
                 }
+            } else if (isUsedInPost) {
+                console.log(`ℹ️ [CLOUDINARY PRESERVED] Media is still in use by an active post, skipping Cloudinary destroy.`);
             }
         }
 
@@ -293,3 +296,46 @@ export const schedulePost = async (req: AuthRequest, res: Response): Promise<voi
         res.status(500).json({ message: error?.message || "Server error" });
     }
 }
+
+// Delete upcoming scheduled post
+// DELETE /api/posts/:id
+export const deletePost = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const post = await Post.findOne({ _id: id, user: req.user._id });
+
+        if (!post) {
+            res.status(404).json({ message: "Post not found" });
+            return;
+        }
+
+        if (post.status === "published") {
+            res.status(400).json({ message: "Published posts cannot be deleted." });
+            return;
+        }
+
+        // Delete associated media from Cloudinary if hosted on Cloudinary and no generation is using it
+        if (post.mediaUrl) {
+            const publicId = extractCloudinaryPublicId(post.mediaUrl);
+            const isUsedInGen = await Generation.exists({ mediaUrl: post.mediaUrl });
+            if (publicId && !isUsedInGen) {
+                try {
+                    const isVideo = post.mediaType === "video" || /\.(mp4|webm|mov|mkv|ogg)$/i.test(post.mediaUrl) || post.mediaUrl.includes("/video/upload/");
+                    const cloudRes = await cloudinary.uploader.destroy(publicId, {
+                        resource_type: isVideo ? "video" : "image"
+                    });
+                    console.log(`🗑️ [CLOUDINARY POST MEDIA DELETED] Public ID: ${publicId}, Result:`, cloudRes);
+                } catch (cloudErr: any) {
+                    console.warn(`⚠️ [CLOUDINARY DELETE ERROR] Failed to delete post media ${publicId}:`, cloudErr?.message || cloudErr);
+                }
+            }
+        }
+
+        await Post.deleteOne({ _id: id });
+        console.log(`🗑️ [SCHEDULED POST DELETED] Post ID: ${id}`);
+        res.json({ message: "Scheduled post deleted successfully", id });
+    } catch (error: any) {
+        console.error("Delete Post Error:", error);
+        res.status(500).json({ message: error?.message || "Failed to delete scheduled post" });
+    }
+};

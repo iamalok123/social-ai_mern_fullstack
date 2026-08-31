@@ -20,10 +20,72 @@ import {
     ChevronLeftIcon,
     ChevronRightIcon,
     ImageIcon,
-    FilmIcon
+    FilmIcon,
+    Trash2Icon,
+    PlayIcon,
+    EyeIcon,
+    Loader2Icon,
+    CheckCircle2Icon,
+    AlertCircleIcon,
+    TimerIcon,
+    SearchIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, API_PATHS } from "../api/axios";
+
+interface PostThumbnailProps {
+    mediaUrl: string;
+    isVideo: boolean;
+    onClick: () => void;
+}
+
+const PostThumbnail = ({ mediaUrl, isVideo, onClick }: PostThumbnailProps) => {
+    const [hasError, setHasError] = useState(false);
+
+    if (hasError) {
+        return (
+            <div className="relative shrink-0 w-18 h-18 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-slate-200/80 dark:border-zinc-800/80 bg-slate-100 dark:bg-zinc-900/90 flex flex-col items-center justify-center text-slate-400 dark:text-zinc-500 p-1.5 text-center shadow-2xs">
+                <ImageIcon className="size-4.5 mb-1 text-slate-400 dark:text-zinc-500" />
+                <span className="text-[9px] font-medium leading-tight">Image offline</span>
+            </div>
+        );
+    }
+
+    return (
+        <div
+            onClick={onClick}
+            className="relative shrink-0 w-18 h-18 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-950 cursor-pointer group/thumb shadow-2xs"
+            title="Click to preview media"
+        >
+            {isVideo ? (
+                <>
+                    <video
+                        src={mediaUrl}
+                        className="w-full h-full object-cover pointer-events-none"
+                        onError={() => setHasError(true)}
+                    />
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <div className="p-1.5 rounded-full bg-white/90 text-slate-900 group-hover/thumb:scale-110 transition-transform">
+                            <PlayIcon className="size-3 fill-current" />
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <>
+                    <img
+                        src={mediaUrl}
+                        alt=""
+                        onError={() => setHasError(true)}
+                        className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover/thumb:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover/thumb:opacity-100">
+                        <EyeIcon className="size-3.5 text-white" />
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
 
 const Scheduler = () => {
     const { user } = useAuth();
@@ -124,8 +186,69 @@ const Scheduler = () => {
         return () => clearInterval(interval);
     }, []);
 
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [deleteConfirmPost, setDeleteConfirmPost] = useState<any | null>(null);
+    const [previewModalMedia, setPreviewModalMedia] = useState<{ url: string; type: "image" | "video" } | null>(null);
+    const [expandedPostIds, setExpandedPostIds] = useState<string[]>([]);
+    const [historyFilter, setHistoryFilter] = useState<"all" | "scheduled" | "published" | "failed">("all");
+    const [historySearch, setHistorySearch] = useState("");
+
+    const togglePostExpansion = (id: string) => {
+        setExpandedPostIds((prev) =>
+            prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+        );
+    };
+
+    const formatRelativeSchedule = (dateString: string) => {
+        try {
+            const target = new Date(dateString);
+            const now = new Date();
+            const diffMs = target.getTime() - now.getTime();
+
+            if (diffMs <= 0) return "Due for publishing";
+            
+            const diffMins = Math.round(diffMs / 60000);
+            if (diffMins < 60) return `in ${diffMins} min${diffMins !== 1 ? 's' : ''}`;
+            
+            const diffHours = Math.floor(diffMins / 60);
+            const remainingMins = diffMins % 60;
+            if (diffHours < 24) {
+                return remainingMins > 0 ? `in ${diffHours}h ${remainingMins}m` : `in ${diffHours} hr${diffHours !== 1 ? 's' : ''}`;
+            }
+            
+            const diffDays = Math.floor(diffHours / 24);
+            return `in ${diffDays} day${diffDays !== 1 ? 's' : ''}`;
+        } catch {
+            return "";
+        }
+    };
+
+    const handleDeletePost = async (postId: string) => {
+        setDeletingId(postId);
+        try {
+            await api.delete(API_PATHS.POSTS.DELETE(postId));
+            setPosts((prev) => prev.filter((p) => p._id !== postId));
+            toast.success("Post deleted successfully");
+            setDeleteConfirmPost(null);
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || error?.message || "Failed to delete post");
+        } finally {
+            setDeletingId(null);
+        }
+    };
+
     const scheduled = posts.filter((p) => p.status === "scheduled");
     const published = posts.filter((p) => p.status === "published");
+    const failed = posts.filter((p) => p.status === "failed");
+
+    const getFilteredPosts = (list: any[]) => {
+        if (!historySearch.trim()) return list;
+        const query = historySearch.toLowerCase();
+        return list.filter((p) => 
+            p.content?.toLowerCase().includes(query) ||
+            p.platforms?.some((pl: string) => pl.toLowerCase().includes(query))
+        );
+    };
 
     // Detect media type: video or image
     const activeMediaType: "image" | "video" | null = mediaFile
@@ -621,103 +744,585 @@ const Scheduler = () => {
                 </div>
             )}
 
-            {/* TAB 2: POST HISTORY (2 Vertical Grids Side By Side) */}
+            {/* TAB 2: POST HISTORY */}
             {activeTab === "history" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5 w-full">
-                    {/* Upcoming Grid */}
-                    <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden shadow-xs flex flex-col">
-                        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-slate-100 dark:border-zinc-800/80 bg-slate-50/50 dark:bg-zinc-900/40">
-                            <CalendarDaysIcon className="size-4 text-amber-500 dark:text-amber-400" />
-                            <h3 className="text-slate-900 dark:text-white text-sm font-semibold">Upcoming Posts</h3>
-                            <span className="ml-auto text-xs font-bold bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-900/60">
-                                {scheduled.length}
-                            </span>
+                <div className="flex flex-col gap-5 w-full">
+                    {/* Header Controls: Filter Pills & Search */}
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pb-2 border-b border-slate-200 dark:border-zinc-800">
+                        {/* Filter Tabs */}
+                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                            <button
+                                type="button"
+                                onClick={() => setHistoryFilter("all")}
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
+                                    historyFilter === "all"
+                                        ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-zinc-900 dark:border-white shadow-2xs"
+                                        : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
+                                }`}
+                            >
+                                All Posts
+                                <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-zinc-700 text-slate-800 dark:text-zinc-200">
+                                    {posts.length}
+                                </span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setHistoryFilter("scheduled")}
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border flex items-center gap-1.5 ${
+                                    historyFilter === "scheduled"
+                                        ? "bg-amber-500 text-white border-amber-500 shadow-2xs"
+                                        : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-amber-300 dark:hover:border-amber-800/60"
+                                }`}
+                            >
+                                <ClockIcon className="size-3" />
+                                Upcoming
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-bold">
+                                    {scheduled.length}
+                                </span>
+                            </button>
+
+                            <button
+                                type="button"
+                                onClick={() => setHistoryFilter("published")}
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border flex items-center gap-1.5 ${
+                                    historyFilter === "published"
+                                        ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
+                                        : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-emerald-300 dark:hover:border-emerald-800/60"
+                                }`}
+                            >
+                                <SendIcon className="size-3" />
+                                Published
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-bold">
+                                    {published.length}
+                                </span>
+                            </button>
+
+                            {failed.length > 0 && (
+                                <button
+                                    type="button"
+                                    onClick={() => setHistoryFilter("failed")}
+                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border flex items-center gap-1.5 ${
+                                        historyFilter === "failed"
+                                            ? "bg-rose-600 text-white border-rose-600 shadow-2xs"
+                                            : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-rose-300"
+                                    }`}
+                                >
+                                    <AlertCircleIcon className="size-3" />
+                                    Failed
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 font-bold">
+                                        {failed.length}
+                                    </span>
+                                </button>
+                            )}
                         </div>
-                        <div className="p-4 flex-1 overflow-y-auto max-h-150 space-y-3 divide-y divide-slate-100 dark:divide-zinc-800/60">
-                            {scheduled.length === 0 ? (
-                                <div className="py-12 text-center text-slate-400 dark:text-zinc-500 text-sm">No posts scheduled yet</div>
-                            ) : (
-                                scheduled.map((post) => (
-                                    <div key={post._id} className="pt-3 first:pt-0 hover:bg-slate-50/60 dark:hover:bg-zinc-900/50 p-3 rounded-xl transition-colors border border-transparent hover:border-slate-200 dark:hover:border-zinc-800">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="flex gap-1.5 items-center">
-                                                {post.platforms.map((pl: string) => {
-                                                    const meta = PLATFORMS.find((p) => p.id === pl);
-                                                    return meta ? <meta.icon key={pl} className="size-4 text-slate-600 dark:text-zinc-400" /> : null
-                                                })}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                {post.mediaType && (
-                                                    <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md font-semibold border ${
-                                                        post.mediaType === "video"
-                                                            ? "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50"
-                                                            : "bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800"
-                                                    }`}>
-                                                        {post.mediaType === "video" ? <FilmIcon className="size-3" /> : <ImageIcon className="size-3" />}
-                                                        <span className="capitalize">{post.mediaType}</span>
-                                                    </span>
-                                                )}
-                                                <span className="text-xs text-slate-400 dark:text-zinc-500">
-                                                    {new Date(post.scheduledFor).toLocaleString()}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <p className="text-sm text-slate-600 dark:text-zinc-300 line-clamp-3 whitespace-pre-wrap">{post.content}</p>
-                                    </div>
-                                ))
+
+                        {/* Search Bar */}
+                        <div className="relative w-full sm:w-64">
+                            <SearchIcon className="size-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500 pointer-events-none" />
+                            <input
+                                type="text"
+                                placeholder="Search post content..."
+                                value={historySearch}
+                                onChange={(e) => setHistorySearch(e.target.value)}
+                                className="w-full pl-8.5 pr-8 py-1.5 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-red-400 dark:focus:border-red-500/50 transition-colors shadow-2xs"
+                            />
+                            {historySearch && (
+                                <button
+                                    type="button"
+                                    onClick={() => setHistorySearch("")}
+                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-zinc-500 dark:hover:text-zinc-300 cursor-pointer"
+                                >
+                                    <XIcon className="size-3" />
+                                </button>
                             )}
                         </div>
                     </div>
 
-                    {/* Published Grid */}
-                    <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden shadow-xs flex flex-col">
-                        <div className="flex items-center gap-2.5 px-5 py-4 border-b border-slate-100 dark:border-zinc-800/80 bg-slate-50/50 dark:bg-zinc-900/40">
-                            <SendIcon className="size-4 text-emerald-500 dark:text-emerald-400" />
-                            <h3 className="text-slate-900 dark:text-white text-sm font-semibold">Published Posts</h3>
-                            <span className="ml-auto text-xs font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900/60">
-                                {published.length}
-                            </span>
-                        </div>
-                        <div className="p-4 flex-1 overflow-y-auto max-h-150 space-y-3 divide-y divide-slate-100 dark:divide-zinc-800/60">
-                            {published.length === 0 ? (
-                                <div className="py-12 text-center text-slate-400 dark:text-zinc-500 text-sm">No published posts yet</div>
-                            ) : (
-                                published.map((post) => (
-                                    <div key={post._id} className="pt-3 first:pt-0 hover:bg-slate-50/60 dark:hover:bg-zinc-900/50 p-3 rounded-xl transition-colors border border-transparent hover:border-slate-200 dark:hover:border-zinc-800">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="flex gap-1.5 items-center">
-                                                {post.platforms.map((pl: string) => {
-                                                    const meta = PLATFORMS.find((p) => p.id === pl);
-                                                    return meta ? <meta.icon key={pl} className="size-4 text-slate-600 dark:text-zinc-400" /> : null
-                                                })}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                {post.mediaType && (
-                                                    <span className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-md font-semibold border ${
-                                                        post.mediaType === "video"
-                                                            ? "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/50"
-                                                            : "bg-slate-100 dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800"
-                                                    }`}>
-                                                        {post.mediaType === "video" ? <FilmIcon className="size-3" /> : <ImageIcon className="size-3" />}
-                                                        <span className="capitalize">{post.mediaType}</span>
-                                                    </span>
-                                                )}
-                                                <span className="text-xs text-slate-400 dark:text-zinc-500">
-                                                    {new Date(post.updatedAt).toLocaleString()}
-                                                </span>
-                                                <span className="text-xs font-bold bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800/60 px-2 py-0.5 rounded-md">Published</span>
-                                            </div>
+                    {/* VIEW 1: Dual Column Split View (when historyFilter === "all" and not searching) */}
+                    {historyFilter === "all" ? (
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
+                            {/* Left Column: Upcoming / Scheduled Posts */}
+                            <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden shadow-xs flex flex-col">
+                                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-zinc-800/80 bg-slate-50/50 dark:bg-zinc-900/40">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/60">
+                                            <CalendarDaysIcon className="size-4" />
                                         </div>
-                                        <p className="text-sm text-slate-600 dark:text-zinc-300 line-clamp-3 whitespace-pre-wrap">{post.content}</p>
+                                        <div>
+                                            <h3 className="text-slate-900 dark:text-white text-sm font-bold">Upcoming Posts</h3>
+                                            <p className="text-[11px] text-slate-400 dark:text-zinc-500">Scheduled to publish automatically</p>
+                                        </div>
                                     </div>
-                                ))
-                            )}
+                                    <span className="text-xs font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 px-2.5 py-0.5 rounded-full border border-amber-200 dark:border-amber-900/60">
+                                        {scheduled.length}
+                                    </span>
+                                </div>
+
+                                <div className="p-4 flex-1 overflow-y-auto max-h-160 space-y-3.5">
+                                    {getFilteredPosts(scheduled).length === 0 ? (
+                                        <div className="py-16 text-center text-slate-400 dark:text-zinc-500 flex flex-col items-center justify-center gap-2">
+                                            <div className="size-12 rounded-2xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center text-slate-400 dark:text-zinc-500 border border-slate-200/60 dark:border-zinc-800">
+                                                <ClockIcon className="size-6" />
+                                            </div>
+                                            <p className="text-xs font-semibold text-slate-600 dark:text-zinc-300">No upcoming posts scheduled</p>
+                                            <p className="text-[11px] text-slate-400 dark:text-zinc-500 max-w-xs">
+                                                Compose a new post to schedule it for automatic publishing.
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setActiveTab("create")}
+                                                className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+                                            >
+                                                <PlusCircleIcon className="size-3.5" />
+                                                Create a Post
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        getFilteredPosts(scheduled).map((post) => {
+                                            const isExpanded = expandedPostIds.includes(post._id);
+                                            const isLongText = (post.content || "").length > 140;
+                                            const isVideo = post.mediaType === "video" || (post.mediaUrl && (/\.(mp4|webm|mov|mkv|ogg)$/i.test(post.mediaUrl) || post.mediaUrl.includes("/video/upload/")));
+
+                                            return (
+                                                <div
+                                                    key={post._id}
+                                                    className="group relative bg-slate-50/60 dark:bg-zinc-900/60 hover:bg-white dark:hover:bg-zinc-900 p-4 rounded-2xl transition-all duration-150 border border-slate-200/80 dark:border-zinc-800 hover:border-amber-300 dark:hover:border-amber-500/40 shadow-2xs hover:shadow-xs flex flex-col gap-3"
+                                                >
+                                                    {/* Top Row: Platforms + Schedule Countdown + Cancel/Delete Action */}
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            {post.platforms?.map((pl: string) => {
+                                                                const meta = PLATFORMS.find((p) => p.id === pl);
+                                                                if (!meta) return null;
+                                                                const Icon = meta.icon;
+                                                                return (
+                                                                    <span
+                                                                        key={pl}
+                                                                        title={meta.name || pl}
+                                                                        className="p-1 rounded-lg bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 shadow-2xs inline-flex items-center justify-center"
+                                                                    >
+                                                                        <Icon className="size-3.5" />
+                                                                    </span>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/60">
+                                                                <TimerIcon className="size-3 animate-pulse text-amber-500" />
+                                                                <span>{formatRelativeSchedule(post.scheduledFor)}</span>
+                                                            </span>
+
+                                                            {/* Cancel / Delete Upcoming Post */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setDeleteConfirmPost(post)}
+                                                                disabled={deletingId === post._id}
+                                                                title="Cancel & Delete upcoming post"
+                                                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer border border-transparent hover:border-red-200 dark:hover:border-red-900/50"
+                                                            >
+                                                                {deletingId === post._id ? (
+                                                                    <Loader2Icon className="size-3.5 animate-spin text-red-500" />
+                                                                ) : (
+                                                                    <Trash2Icon className="size-3.5" />
+                                                                )}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Middle Row: Content & Thumbnail */}
+                                                    <div className="flex items-start justify-between gap-3 min-w-0">
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className={`text-xs sm:text-sm text-slate-700 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap ${!isExpanded && isLongText ? "line-clamp-3" : ""}`}>
+                                                                {post.content}
+                                                            </p>
+                                                            {isLongText && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => togglePostExpansion(post._id)}
+                                                                    className="mt-1 text-[11px] font-semibold text-red-500 dark:text-red-400 hover:underline cursor-pointer"
+                                                                >
+                                                                    {isExpanded ? "Show less" : "Show full text"}
+                                                                </button>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Thumbnail Preview */}
+                                                        {post.mediaUrl && (
+                                                            <PostThumbnail
+                                                                mediaUrl={post.mediaUrl}
+                                                                isVideo={Boolean(isVideo)}
+                                                                onClick={() => setPreviewModalMedia({ url: post.mediaUrl, type: isVideo ? "video" : "image" })}
+                                                            />
+                                                        )}
+                                                    </div>
+
+                                                    {/* Bottom Row: Scheduled Date */}
+                                                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/60 dark:border-zinc-800/80 text-[11px] text-slate-400 dark:text-zinc-500">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <CalendarIcon className="size-3.5 text-amber-500/80" />
+                                                            <span>{new Date(post.scheduledFor).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                                                        </div>
+
+                                                        {post.mediaUrl && (
+                                                            <span className="flex items-center gap-1 font-medium text-slate-500 dark:text-zinc-400">
+                                                                {isVideo ? <FilmIcon className="size-3" /> : <ImageIcon className="size-3" />}
+                                                                <span className="capitalize">{isVideo ? "video" : "image"}</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Right Column: Published Posts (NO DELETE BUTTON) */}
+                            <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden shadow-xs flex flex-col">
+                                <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-zinc-800/80 bg-slate-50/50 dark:bg-zinc-900/40">
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60">
+                                            <SendIcon className="size-4" />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-slate-900 dark:text-white text-sm font-bold">Published Posts</h3>
+                                            <p className="text-[11px] text-slate-400 dark:text-zinc-500">Successfully broadcasted posts</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-xs font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-900/60">
+                                        {published.length}
+                                    </span>
+                                </div>
+
+                                <div className="p-4 flex-1 overflow-y-auto max-h-160 space-y-3.5">
+                                    {getFilteredPosts(published).length === 0 ? (
+                                        <div className="py-16 text-center text-slate-400 dark:text-zinc-500 flex flex-col items-center justify-center gap-2">
+                                            <div className="size-12 rounded-2xl bg-slate-100 dark:bg-zinc-900 flex items-center justify-center text-slate-400 dark:text-zinc-500 border border-slate-200/60 dark:border-zinc-800">
+                                                <SendIcon className="size-6" />
+                                            </div>
+                                            <p className="text-xs font-semibold text-slate-600 dark:text-zinc-300">No published posts yet</p>
+                                            <p className="text-[11px] text-slate-400 dark:text-zinc-500 max-w-xs">
+                                                Posts published by the scheduler will appear here.
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        getFilteredPosts(published).map((post) => {
+                                            const isExpanded = expandedPostIds.includes(post._id);
+                                            const isLongText = (post.content || "").length > 140;
+                                            const isVideo = post.mediaType === "video" || (post.mediaUrl && (/\.(mp4|webm|mov|mkv|ogg)$/i.test(post.mediaUrl) || post.mediaUrl.includes("/video/upload/")));
+
+                                            return (
+                                                <div
+                                                    key={post._id}
+                                                    className="group relative bg-slate-50/60 dark:bg-zinc-900/60 hover:bg-white dark:hover:bg-zinc-900 p-4 rounded-2xl transition-all duration-150 border border-slate-200/80 dark:border-zinc-800 hover:border-emerald-300 dark:hover:border-emerald-500/40 shadow-2xs hover:shadow-xs flex flex-col gap-3"
+                                                >
+                                                    {/* Top Row: Platforms + Published Badge (No delete button on published posts) */}
+                                                    <div className="flex items-center justify-between gap-2">
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            {post.platforms?.map((pl: string) => {
+                                                                const meta = PLATFORMS.find((p) => p.id === pl);
+                                                                if (!meta) return null;
+                                                                const Icon = meta.icon;
+                                                                return (
+                                                                    <span
+                                                                        key={pl}
+                                                                        title={meta.name || pl}
+                                                                        className="p-1 rounded-lg bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 shadow-2xs inline-flex items-center justify-center"
+                                                                    >
+                                                                        <Icon className="size-3.5" />
+                                                                    </span>
+                                                                );
+                                                            })}
+                                                        </div>
+
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60">
+                                                                <CheckCircle2Icon className="size-3 text-emerald-500" />
+                                                                <span>Published</span>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Middle Row: Content & Thumbnail */}
+                                                    <div className="flex items-start justify-between gap-3 min-w-0">
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className={`text-xs sm:text-sm text-slate-700 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap ${!isExpanded && isLongText ? "line-clamp-3" : ""}`}>
+                                                                {post.content}
+                                                            </p>
+                                                            {isLongText && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => togglePostExpansion(post._id)}
+                                                                    className="mt-1 text-[11px] font-semibold text-red-500 dark:text-red-400 hover:underline cursor-pointer"
+                                                                >
+                                                                    {isExpanded ? "Show less" : "Show full text"}
+                                                                </button>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Thumbnail Preview */}
+                                                        {post.mediaUrl && (
+                                                            <PostThumbnail
+                                                                mediaUrl={post.mediaUrl}
+                                                                isVideo={Boolean(isVideo)}
+                                                                onClick={() => setPreviewModalMedia({ url: post.mediaUrl, type: isVideo ? "video" : "image" })}
+                                                            />
+                                                        )}
+                                                    </div>
+
+                                                    {/* Bottom Row: Published Date */}
+                                                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/60 dark:border-zinc-800/80 text-[11px] text-slate-400 dark:text-zinc-500">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <ClockIcon className="size-3.5 text-emerald-500/80" />
+                                                            <span>{new Date(post.updatedAt || post.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                                                        </div>
+
+                                                        {post.mediaUrl && (
+                                                            <span className="flex items-center gap-1 font-medium text-slate-500 dark:text-zinc-400">
+                                                                {isVideo ? <FilmIcon className="size-3" /> : <ImageIcon className="size-3" />}
+                                                                <span className="capitalize">{isVideo ? "video" : "image"}</span>
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ) : (
+                        /* VIEW 2: Filtered Single Feed (Upcoming Only, Published Only, or Failed Only) */
+                        <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-slate-200 dark:border-zinc-800 p-5 shadow-xs">
+                            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100 dark:border-zinc-800">
+                                <h3 className="text-sm font-bold text-slate-900 dark:text-white capitalize flex items-center gap-2">
+                                    {historyFilter === "scheduled" && <ClockIcon className="size-4 text-amber-500" />}
+                                    {historyFilter === "published" && <SendIcon className="size-4 text-emerald-500" />}
+                                    {historyFilter === "failed" && <AlertCircleIcon className="size-4 text-rose-500" />}
+                                    <span>{historyFilter} Posts ({getFilteredPosts(posts.filter((p) => p.status === historyFilter)).length})</span>
+                                </h3>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {getFilteredPosts(posts.filter((p) => p.status === historyFilter)).length === 0 ? (
+                                    <div className="col-span-full py-16 text-center text-slate-400 dark:text-zinc-500 flex flex-col items-center justify-center gap-2">
+                                        <p className="text-xs font-semibold text-slate-600 dark:text-zinc-300">No {historyFilter} posts found</p>
+                                    </div>
+                                ) : (
+                                    getFilteredPosts(posts.filter((p) => p.status === historyFilter)).map((post) => {
+                                        const isExpanded = expandedPostIds.includes(post._id);
+                                        const isLongText = (post.content || "").length > 140;
+                                        const isVideo = post.mediaType === "video" || (post.mediaUrl && (/\.(mp4|webm|mov|mkv|ogg)$/i.test(post.mediaUrl) || post.mediaUrl.includes("/video/upload/")));
+
+                                        return (
+                                            <div
+                                                key={post._id}
+                                                className="group relative bg-slate-50/60 dark:bg-zinc-900/60 hover:bg-white dark:hover:bg-zinc-900 p-4 rounded-2xl transition-all duration-150 border border-slate-200/80 dark:border-zinc-800 shadow-2xs hover:shadow-xs flex flex-col gap-3"
+                                            >
+                                                {/* Top Row */}
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        {post.platforms?.map((pl: string) => {
+                                                            const meta = PLATFORMS.find((p) => p.id === pl);
+                                                            if (!meta) return null;
+                                                            const Icon = meta.icon;
+                                                            return (
+                                                                <span
+                                                                    key={pl}
+                                                                    title={meta.name || pl}
+                                                                    className="p-1 rounded-lg bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 shadow-2xs inline-flex items-center justify-center"
+                                                                >
+                                                                    <Icon className="size-3.5" />
+                                                                </span>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    <div className="flex items-center gap-1.5">
+                                                        {post.status === "scheduled" && (
+                                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-900/60">
+                                                                <TimerIcon className="size-3 animate-pulse text-amber-500" />
+                                                                <span>{formatRelativeSchedule(post.scheduledFor)}</span>
+                                                            </span>
+                                                        )}
+                                                        {post.status === "published" && (
+                                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60">
+                                                                <CheckCircle2Icon className="size-3 text-emerald-500" />
+                                                                <span>Published</span>
+                                                            </span>
+                                                        )}
+                                                        {post.status === "failed" && (
+                                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60">
+                                                                <AlertCircleIcon className="size-3 text-rose-500" />
+                                                                <span>Failed</span>
+                                                            </span>
+                                                        )}
+
+                                                        {/* Only allow deleting upcoming/scheduled posts */}
+                                                        {post.status === "scheduled" && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setDeleteConfirmPost(post)}
+                                                                disabled={deletingId === post._id}
+                                                                title="Cancel & Delete Upcoming Post"
+                                                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 dark:text-zinc-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors cursor-pointer border border-transparent hover:border-red-200 dark:hover:border-red-900/50"
+                                                            >
+                                                                {deletingId === post._id ? (
+                                                                    <Loader2Icon className="size-3.5 animate-spin text-red-500" />
+                                                                ) : (
+                                                                    <Trash2Icon className="size-3.5" />
+                                                                )}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Content & Media */}
+                                                <div className="flex items-start justify-between gap-3 min-w-0">
+                                                    <div className="flex-1 min-w-0">
+                                                        <p className={`text-xs sm:text-sm text-slate-700 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap ${!isExpanded && isLongText ? "line-clamp-3" : ""}`}>
+                                                            {post.content}
+                                                        </p>
+                                                        {isLongText && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => togglePostExpansion(post._id)}
+                                                                className="mt-1 text-[11px] font-semibold text-red-500 dark:text-red-400 hover:underline cursor-pointer"
+                                                            >
+                                                                {isExpanded ? "Show less" : "Show full text"}
+                                                            </button>
+                                                        )}
+                                                    </div>
+
+                                                    {post.mediaUrl && (
+                                                        <PostThumbnail
+                                                            mediaUrl={post.mediaUrl}
+                                                            isVideo={Boolean(isVideo)}
+                                                            onClick={() => setPreviewModalMedia({ url: post.mediaUrl, type: isVideo ? "video" : "image" })}
+                                                        />
+                                                    )}
+                                                </div>
+
+                                                {/* Bottom Row */}
+                                                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/60 dark:border-zinc-800/80 text-[11px] text-slate-400 dark:text-zinc-500">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <CalendarIcon className="size-3.5 text-slate-400" />
+                                                        <span>{new Date(post.scheduledFor || post.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                                                    </div>
+
+                                                    {post.mediaUrl && (
+                                                        <span className="flex items-center gap-1 font-medium text-slate-500 dark:text-zinc-400">
+                                                            {isVideo ? <FilmIcon className="size-3" /> : <ImageIcon className="size-3" />}
+                                                            <span className="capitalize">{isVideo ? "video" : "image"}</span>
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* DELETE CONFIRMATION MODAL (FOR UPCOMING / SCHEDULED POSTS ONLY) */}
+            {deleteConfirmPost && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+                    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150">
+                        <div className="flex items-start gap-3">
+                            <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-900/60 shrink-0">
+                                <Trash2Icon className="size-5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                                    Cancel Upcoming Post?
+                                </h3>
+                                <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed">
+                                    This upcoming post will be removed from your queue and will NOT be published to your connected social accounts.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Post snippet */}
+                        <div className="p-3 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200/70 dark:border-zinc-800/80 text-xs text-slate-600 dark:text-zinc-300 max-h-24 overflow-y-auto italic line-clamp-3">
+                            &ldquo;{deleteConfirmPost.content}&rdquo;
+                        </div>
+
+                        <div className="flex items-center justify-end gap-2.5 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setDeleteConfirmPost(null)}
+                                disabled={deletingId === deleteConfirmPost._id}
+                                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer border border-slate-200 dark:border-zinc-800"
+                            >
+                                Keep Post
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => handleDeletePost(deleteConfirmPost._id)}
+                                disabled={deletingId === deleteConfirmPost._id}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-white bg-red-600 hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-500 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                            >
+                                {deletingId === deleteConfirmPost._id ? (
+                                    <>
+                                        <Loader2Icon className="size-3.5 animate-spin" />
+                                        Canceling...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Trash2Icon className="size-3.5" />
+                                        Cancel & Delete
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </div>
                 </div>
             )}
-        </div>
-    )
-}
 
-export default Scheduler
+            {/* MEDIA LIGHTBOX PREVIEW MODAL */}
+            {previewModalMedia && (
+                <div 
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150"
+                    onClick={() => setPreviewModalMedia(null)}
+                >
+                    <div 
+                        className="relative max-w-3xl max-h-[85vh] w-full flex flex-col items-center justify-center rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setPreviewModalMedia(null)}
+                            className="absolute top-3 right-3 p-2 bg-black/70 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer z-30 shadow-md backdrop-blur-xs"
+                            title="Close preview"
+                        >
+                            <XIcon className="size-4" />
+                        </button>
+                        
+                        {previewModalMedia.type === "video" || /\.(mp4|webm|mov|mkv|ogg)$/i.test(previewModalMedia.url) || previewModalMedia.url.includes("/video/upload/") ? (
+                            <video
+                                src={previewModalMedia.url}
+                                controls
+                                autoPlay
+                                playsInline
+                                className="max-h-[80vh] w-auto max-w-full object-contain"
+                            />
+                        ) : (
+                            <img
+                                src={previewModalMedia.url}
+                                alt="preview"
+                                className="max-h-[80vh] w-auto max-w-full object-contain"
+                            />
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default Scheduler;
