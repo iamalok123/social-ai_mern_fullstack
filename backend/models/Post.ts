@@ -17,6 +17,13 @@ const postSchema = new mongoose.Schema({
         type: String,
         enum: ["image", "video"]
     },
+    mediaUrls: [{
+        type: String
+    }],
+    mediaItems: [{
+        url: { type: String, required: true },
+        type: { type: String, enum: ["image", "video"], default: "image" }
+    }],
     platforms: [{
         type: String,
         enum: ["twitter", "linkedin", "facebook", "instagram", "facebook_page", "linkedin_page", "instagram_business"]
@@ -26,6 +33,9 @@ const postSchema = new mongoose.Schema({
         required: true
     },
     status: { type: String, enum: ["draft", "scheduled", "published", "failed"], default: "scheduled" },
+    failedReason: {
+        type: String
+    }
 }, { timestamps: true });
 
 export const Post = mongoose.model("Post", postSchema);

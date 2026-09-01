@@ -19,7 +19,7 @@ postRouter.get('/', protect, getPosts);
 postRouter.delete('/:id', protect, deletePost);
 postRouter.get('/generations', protect, getGenerations);
 postRouter.delete('/generations/:id', protect, deleteGeneration);
-postRouter.post('/', protect, upload.single("media"), schedulePost);
+postRouter.post('/', protect, upload.array("media", 4), schedulePost);
 postRouter.post('/generate', protect, generatePost);
 
 export default postRouter

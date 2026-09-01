@@ -36,10 +36,36 @@ import { api, API_PATHS } from "../api/axios";
 interface PostThumbnailProps {
     mediaUrl: string;
     isVideo: boolean;
+    count?: number;
     onClick: () => void;
 }
 
-const PostThumbnail = ({ mediaUrl, isVideo, onClick }: PostThumbnailProps) => {
+/**
+ * Calculates Twitter/X weighted length according to Twitter API rules:
+ * - Every http:// or https:// URL counts as exactly 23 characters.
+ * - Basic Latin / standard ASCII characters (codePoint <= 4351) count as 1.
+ * - Emojis and extended Unicode characters (codePoint > 4351) count as 2.
+ */
+export const calculateTwitterLength = (text: string): number => {
+    if (!text) return 0;
+    const urlRegex = /https?:\/\/[^\s]+/gi;
+    const textWithoutUrls = text.replace(urlRegex, "");
+    const urlMatches = text.match(urlRegex) || [];
+    const urlLength = urlMatches.length * 23;
+
+    let charLength = 0;
+    for (const char of Array.from(textWithoutUrls)) {
+        const codePoint = char.codePointAt(0) || 0;
+        if (codePoint <= 4351) {
+            charLength += 1;
+        } else {
+            charLength += 2;
+        }
+    }
+    return charLength + urlLength;
+};
+
+const PostThumbnail = ({ mediaUrl, isVideo, count, onClick }: PostThumbnailProps) => {
     const [hasError, setHasError] = useState(false);
 
     if (hasError) {
@@ -83,6 +109,12 @@ const PostThumbnail = ({ mediaUrl, isVideo, onClick }: PostThumbnailProps) => {
                     </div>
                 </>
             )}
+
+            {count && count > 1 && (
+                <div className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded-md bg-black/80 text-white text-[10px] font-bold border border-white/20 shadow-xs">
+                    +{count - 1}
+                </div>
+            )}
         </div>
     );
 };
@@ -124,27 +156,27 @@ const Scheduler = () => {
 
     // Attached image/video URLs from Idea card or URL input
     const [existingMediaUrls, setExistingMediaUrls] = useState<string[]>([]);
-    // Newly uploaded File object
-    const [mediaFile, setMediaFile] = useState<File | null>(null);
-    const [mediaFileUrl, setMediaFileUrl] = useState<string | null>(null);
+    // Newly uploaded File objects (up to 4 images or 1 video)
+    const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+    const [mediaFileUrls, setMediaFileUrls] = useState<string[]>([]);
     const [isDragging, setIsDragging] = useState(false);
 
     const [loading, setLoading] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Manage blob object URL lifecycle cleanly
+    // Manage blob object URLs lifecycle cleanly
     useEffect(() => {
-        if (!mediaFile) {
-            setMediaFileUrl(null);
+        if (mediaFiles.length === 0) {
+            setMediaFileUrls([]);
             return;
         }
-        const objectUrl = URL.createObjectURL(mediaFile);
-        setMediaFileUrl(objectUrl);
+        const urls = mediaFiles.map((f) => URL.createObjectURL(f));
+        setMediaFileUrls(urls);
         return () => {
-            URL.revokeObjectURL(objectUrl);
+            urls.forEach((u) => URL.revokeObjectURL(u));
         };
-    }, [mediaFile]);
+    }, [mediaFiles]);
 
     // Read location state when navigated from Kanban / Ideas board or AI Composer
     useEffect(() => {
@@ -166,7 +198,7 @@ const Scheduler = () => {
             }
 
             setExistingMediaUrls(urls);
-            setMediaFile(null);
+            setMediaFiles([]);
             setActiveTab("create");
         }
     }, [location.state]);
@@ -250,18 +282,20 @@ const Scheduler = () => {
         );
     };
 
-    // Detect media type: video or image
-    const activeMediaType: "image" | "video" | null = mediaFile
-        ? (mediaFile.type.startsWith("video/") ? "video" : "image")
-        : existingMediaUrls.length > 0
-            ? (/\.(mp4|webm|mov|mkv|ogg)$/i.test(existingMediaUrls[0]) || existingMediaUrls[0].includes("/video/upload/") ? "video" : "image")
-            : null;
+    // Aggregate preview media URLs (all uploaded blobs + existing URLs)
+    const allPreviewMediaUrls = [
+        ...mediaFileUrls,
+        ...existingMediaUrls
+    ];
 
-    const previewMediaUrl = mediaFile
-        ? mediaFileUrl
-        : existingMediaUrls.length > 0
-            ? existingMediaUrls[0]
-            : null;
+    const hasVideo = mediaFiles.some(f => f.type.startsWith("video/")) || 
+                     existingMediaUrls.some(u => /\.(mp4|webm|mov|mkv|ogg)$/i.test(u) || u.includes("/video/upload/"));
+
+    const activeMediaType: "image" | "video" | null = allPreviewMediaUrls.length === 0 
+        ? null 
+        : (hasVideo ? "video" : "image");
+
+    const previewMediaUrl = allPreviewMediaUrls.length > 0 ? allPreviewMediaUrls[0] : null;
 
     const togglePlatform = (id: string) => {
         setSelectedPlatforms((prev) =>
@@ -269,8 +303,53 @@ const Scheduler = () => {
         );
     };
 
+    const handleAddFiles = (newFiles: FileList | File[]) => {
+        const fileArray = Array.from(newFiles);
+        const validFiles = fileArray.filter(f => f.type.startsWith("image/") || f.type.startsWith("video/"));
+
+        if (validFiles.length === 0) {
+            toast.error("Please select valid image or video files.");
+            return;
+        }
+
+        const isAddingVideo = validFiles.some(f => f.type.startsWith("video/"));
+        if (isAddingVideo) {
+            // Video takes all slots
+            const videoFile = validFiles.find(f => f.type.startsWith("video/"))!;
+            setMediaFiles([videoFile]);
+            setExistingMediaUrls([]);
+            toast.success(`Loaded video: ${videoFile.name}`);
+            return;
+        }
+
+        if (hasVideo) {
+            // Replace video with image(s)
+            const imagesOnly = validFiles.filter(f => f.type.startsWith("image/")).slice(0, 4);
+            setMediaFiles(imagesOnly);
+            setExistingMediaUrls([]);
+            toast.success(`Loaded ${imagesOnly.length} image(s)`);
+            return;
+        }
+
+        const currentTotal = mediaFiles.length + existingMediaUrls.length;
+        const availableSlots = Math.max(0, 4 - currentTotal);
+
+        if (availableSlots <= 0) {
+            toast.error("Maximum 4 images allowed per post.");
+            return;
+        }
+
+        const imagesToAdd = validFiles.filter(f => f.type.startsWith("image/")).slice(0, availableSlots);
+        setMediaFiles(prev => [...prev, ...imagesToAdd]);
+        toast.success(`Added ${imagesToAdd.length} image(s)`);
+    };
+
+    const handleRemoveFile = (index: number) => {
+        setMediaFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
     const handleRemoveExistingMedia = (index: number) => {
-        setExistingMediaUrls((prev) => prev.filter((_, i) => i !== index));
+        setExistingMediaUrls(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleDragOver = (e: React.DragEvent) => {
@@ -289,14 +368,8 @@ const Scheduler = () => {
         e.preventDefault();
         e.stopPropagation();
         setIsDragging(false);
-        if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            const file = e.dataTransfer.files[0];
-            if (file.type.startsWith("image/") || file.type.startsWith("video/")) {
-                setMediaFile(file);
-                toast.success(`Loaded ${file.type.startsWith("video/") ? "video" : "image"}: ${file.name}`);
-            } else {
-                toast.error("Please upload a valid image or video file.");
-            }
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleAddFiles(e.dataTransfer.files);
         }
     };
 
@@ -310,7 +383,16 @@ const Scheduler = () => {
             toast.error("Select date and time");
             return;
         }
-        const hasMedia = mediaFile || existingMediaUrls.length > 0;
+
+        // Twitter character & URL length validation
+        const isTwitterSelected = selectedPlatforms.includes("twitter");
+        const twitterLength = calculateTwitterLength(content);
+        if (isTwitterSelected && twitterLength > 280) {
+            toast.error(`Post exceeds Twitter's 280 character limit (Current: ${twitterLength}/280). Please shorten your content.`);
+            return;
+        }
+
+        const hasMedia = mediaFiles.length > 0 || existingMediaUrls.length > 0;
         if (selectedPlatforms.includes("instagram") && !hasMedia) {
             toast.error("Instagram requires an image or video");
             return;
@@ -323,13 +405,14 @@ const Scheduler = () => {
         formData.append("status", "scheduled");
         formData.append("platforms", JSON.stringify(selectedPlatforms));
 
-        if (mediaFile) {
-            formData.append("media", mediaFile);
-            formData.append("mediaType", mediaFile.type.startsWith("video/") ? "video" : "image");
-        } else if (existingMediaUrls.length > 0) {
-            formData.append("mediaUrl", existingMediaUrls[0]);
-            const isVid = /\.(mp4|webm|mov|mkv|ogg)$/i.test(existingMediaUrls[0]) || existingMediaUrls[0].includes("/video/upload/");
-            formData.append("mediaType", isVid ? "video" : "image");
+        // Append all uploaded files
+        mediaFiles.forEach((file) => {
+            formData.append("media", file);
+        });
+
+        // Append existing media URLs
+        if (existingMediaUrls.length > 0) {
+            formData.append("mediaUrls", JSON.stringify(existingMediaUrls));
         }
 
         setLoading(true);
@@ -342,7 +425,7 @@ const Scheduler = () => {
             setScheduledDate("");
             setScheduledTime("");
             setSelectedPlatforms([]);
-            setMediaFile(null);
+            setMediaFiles([]);
             setExistingMediaUrls([]);
             fetchPosts();
         } catch (error: any) {
@@ -430,17 +513,51 @@ const Scheduler = () => {
                                             <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
                                                 Content
                                             </label>
-                                            <span className={`text-xs font-medium ${content.length > 270 ? "text-red-500 dark:text-red-400" : "text-slate-400 dark:text-zinc-500"}`}>
-                                                {content.length}/280
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                {selectedPlatforms.includes("twitter") ? (
+                                                    <div className="flex items-center gap-1.5">
+                                                        {/https?:\/\/[^\s]+/i.test(content) && (
+                                                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800" title="URLs count as 23 characters on X">
+                                                                URLs = 23 chars
+                                                            </span>
+                                                        )}
+                                                        <span
+                                                            className={`text-xs font-bold px-2 py-0.5 rounded-md border transition-colors ${
+                                                                calculateTwitterLength(content) > 280
+                                                                    ? "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-800 animate-pulse"
+                                                                    : calculateTwitterLength(content) > 250
+                                                                    ? "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800"
+                                                                    : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700"
+                                                            }`}
+                                                            title="Twitter/X weighted character count (URLs = 23 chars, Emojis = 2 chars)"
+                                                        >
+                                                            𝕏 {calculateTwitterLength(content)}/280
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <span className={`text-xs font-medium ${content.length > 270 ? "text-red-500 dark:text-red-400" : "text-slate-400 dark:text-zinc-500"}`}>
+                                                        {content.length}/280
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
                                         <textarea
                                             required
                                             placeholder="What do you want to share today?"
-                                            className="w-full h-56 md:h-64 px-4 py-3 bg-slate-50 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white text-sm placeholder-slate-400 dark:placeholder-zinc-500 outline-none resize-none focus:border-red-400 dark:focus:border-red-500/50 transition-colors overflow-y-auto leading-relaxed"
+                                            className={`w-full h-56 md:h-64 px-4 py-3 bg-slate-50 dark:bg-zinc-900/60 border rounded-xl text-slate-900 dark:text-white text-sm placeholder-slate-400 dark:placeholder-zinc-500 outline-none resize-none transition-colors overflow-y-auto leading-relaxed ${
+                                                selectedPlatforms.includes("twitter") && calculateTwitterLength(content) > 280
+                                                    ? "border-rose-400 dark:border-rose-600 focus:border-rose-500"
+                                                    : "border-slate-200 dark:border-zinc-800 focus:border-red-400 dark:focus:border-red-500/50"
+                                            }`}
                                             value={content}
                                             onChange={(e) => setContent(e.target.value)}
                                         />
+                                        {selectedPlatforms.includes("twitter") && calculateTwitterLength(content) > 280 && (
+                                            <p className="text-xs font-medium text-rose-500 dark:text-rose-400 mt-1.5 flex items-center gap-1.5">
+                                                <AlertCircleIcon className="size-3.5 shrink-0" />
+                                                Content exceeds Twitter/X 280 character limit by {calculateTwitterLength(content) - 280} char(s).
+                                            </p>
+                                        )}
                                     </div>
 
                                     {/* Right Column: Media Upload & Date/Time (5 cols) */}
@@ -448,9 +565,16 @@ const Scheduler = () => {
                                         {/* Media Upload Section */}
                                         <div className="flex-1 flex flex-col">
                                             <div className="flex items-center justify-between mb-1.5">
-                                                <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
-                                                    Media Attachment
-                                                </label>
+                                                <div className="flex items-center gap-1.5">
+                                                    <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
+                                                        Media Attachment
+                                                    </label>
+                                                    {allPreviewMediaUrls.length > 0 && (
+                                                        <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">
+                                                            {hasVideo ? "(1 video)" : `(${allPreviewMediaUrls.length}/4 images)`}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 {activeMediaType && (
                                                     <span className="flex items-center gap-1 text-[11px] font-semibold text-red-500 dark:text-red-400 uppercase bg-red-50 dark:bg-red-950/40 px-2 py-0.5 rounded-md border border-red-200 dark:border-red-900/50">
                                                         {activeMediaType === "video" ? <FilmIcon className="size-3" /> : <ImageIcon className="size-3" />}
@@ -460,123 +584,82 @@ const Scheduler = () => {
                                             </div>
 
                                             {/* Display Pre-attached URLs and Newly Selected Files */}
-                                            {(existingMediaUrls.length > 0 || mediaFile) ? (
+                                            {allPreviewMediaUrls.length > 0 ? (
                                                 <div className="space-y-2 flex-1 flex flex-col justify-between">
-                                                    {/* Single Item: Full-Width Clean Card */}
-                                                    {(!mediaFile && existingMediaUrls.length > 1) ? (
-                                                        /* Multi-Image Grid (only when >1 existing image URLs) */
-                                                        <div className="grid grid-cols-2 gap-2 h-44 overflow-y-auto p-0.5">
-                                                            {existingMediaUrls.map((url, i) => {
-                                                                const isUrlVideo = /\.(mp4|webm|mov|mkv|ogg)$/i.test(url) || url.includes("/video/upload/");
-                                                                return (
-                                                                    <div key={i} className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-900 aspect-video shadow-xs">
-                                                                        {isUrlVideo ? (
-                                                                            <video src={url} controls className="w-full h-full object-cover" />
-                                                                        ) : (
-                                                                            <img src={url} alt="" className="w-full h-full object-cover" />
-                                                                        )}
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => handleRemoveExistingMedia(i)}
-                                                                            className="absolute top-1.5 right-1.5 p-1 bg-black/70 hover:bg-red-600 text-white rounded-full transition-colors cursor-pointer shadow-xs"
-                                                                            title="Remove media"
-                                                                        >
-                                                                            <XIcon className="size-3" />
-                                                                        </button>
-                                                                    </div>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    ) : (
-                                                        /* Primary Full-Width Preview Card (for 1 uploaded video/image or 1 existing URL) */
-                                                        <div className="relative group w-full h-44 sm:h-48 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-950 dark:bg-zinc-950 shadow-xs flex items-center justify-center">
-                                                            {/* Newly uploaded file */}
-                                                            {mediaFile ? (
-                                                                mediaFile.type.startsWith("video/") ? (
-                                                                    <video
-                                                                        src={mediaFileUrl || undefined}
-                                                                        className="w-full h-full object-contain bg-black"
-                                                                        controls
-                                                                        playsInline
-                                                                    />
-                                                                ) : (
-                                                                    <img
-                                                                        src={mediaFileUrl || ""}
-                                                                        alt="preview"
-                                                                        className="w-full h-full object-cover"
-                                                                    />
-                                                                )
-                                                            ) : existingMediaUrls.length > 0 ? (
-                                                                (/\.(mp4|webm|mov|mkv|ogg)$/i.test(existingMediaUrls[0]) || existingMediaUrls[0].includes("/video/upload/")) ? (
-                                                                    <video
-                                                                        src={existingMediaUrls[0]}
-                                                                        controls
-                                                                        playsInline
-                                                                        className="w-full h-full object-contain bg-black"
-                                                                    />
-                                                                ) : (
-                                                                    <img
-                                                                        src={existingMediaUrls[0]}
-                                                                        alt="preview"
-                                                                        className="w-full h-full object-cover"
-                                                                    />
-                                                                )
-                                                            ) : null}
-
-                                                            {/* Remove Button with frosted backdrop */}
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    if (mediaFile) {
-                                                                        setMediaFile(null);
-                                                                    } else {
-                                                                        setExistingMediaUrls([]);
-                                                                    }
-                                                                }}
-                                                                className="absolute top-2.5 right-2.5 p-1.5 bg-black/60 hover:bg-red-600 text-white rounded-full transition-all backdrop-blur-md cursor-pointer shadow-md z-20 active:scale-95"
-                                                                title="Remove media"
-                                                            >
-                                                                <XIcon className="size-3.5" />
-                                                            </button>
-                                                        </div>
-                                                    )}
-
-                                                    {/* File info and button to replace file */}
-                                                    <div className="flex items-center justify-between gap-2 px-0.5 pt-0.5">
-                                                        <div className="min-w-0 flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400 truncate">
-                                                            {mediaFile ? (
-                                                                <>
-                                                                    {mediaFile.type.startsWith("video/") ? (
-                                                                        <FilmIcon className="size-3.5 text-red-500 shrink-0" />
+                                                    {/* Media Gallery / Grid */}
+                                                    <div className={`gap-2 h-44 overflow-y-auto p-0.5 ${allPreviewMediaUrls.length === 1 && hasVideo ? "flex items-center justify-center" : "grid grid-cols-2"}`}>
+                                                        {/* Uploaded media files */}
+                                                        {mediaFiles.map((file, i) => {
+                                                            const isVid = file.type.startsWith("video/");
+                                                            const blobUrl = mediaFileUrls[i];
+                                                            return (
+                                                                <div key={`file-${i}`} className={`relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-900 shadow-xs ${isVid ? "w-full h-full aspect-video" : "aspect-video"}`}>
+                                                                    {isVid ? (
+                                                                        <video src={blobUrl} controls playsInline className="w-full h-full object-contain bg-black" />
                                                                     ) : (
-                                                                        <ImageIcon className="size-3.5 text-sky-500 shrink-0" />
+                                                                        <img src={blobUrl} alt={file.name} className="w-full h-full object-cover" />
                                                                     )}
-                                                                    <span className="font-medium text-slate-700 dark:text-zinc-200 truncate max-w-44 sm:max-w-56">
-                                                                        {mediaFile.name}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveFile(i)}
+                                                                        className="absolute top-1.5 right-1.5 p-1 bg-black/70 hover:bg-red-600 text-white rounded-full transition-colors cursor-pointer shadow-xs z-10"
+                                                                        title="Remove file"
+                                                                    >
+                                                                        <XIcon className="size-3" />
+                                                                    </button>
+                                                                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-black/60 text-[9px] font-mono text-white max-w-28 truncate">
+                                                                        {file.name}
                                                                     </span>
-                                                                    <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-mono shrink-0">
-                                                                        ({(mediaFile.size / (1024 * 1024)).toFixed(1)} MB)
-                                                                    </span>
-                                                                </>
-                                                            ) : (
-                                                                <span>{existingMediaUrls.length} attached item(s)</span>
-                                                            )}
-                                                        </div>
+                                                                </div>
+                                                            );
+                                                        })}
+
+                                                        {/* Pre-existing media URLs */}
+                                                        {existingMediaUrls.map((url, i) => {
+                                                            const isUrlVid = /\.(mp4|webm|mov|mkv|ogg)$/i.test(url) || url.includes("/video/upload/");
+                                                            return (
+                                                                <div key={`url-${i}`} className={`relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-900 shadow-xs ${isUrlVid ? "w-full h-full aspect-video" : "aspect-video"}`}>
+                                                                    {isUrlVid ? (
+                                                                        <video src={url} controls playsInline className="w-full h-full object-contain bg-black" />
+                                                                    ) : (
+                                                                        <img src={url} alt="" className="w-full h-full object-cover" />
+                                                                    )}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemoveExistingMedia(i)}
+                                                                        className="absolute top-1.5 right-1.5 p-1 bg-black/70 hover:bg-red-600 text-white rounded-full transition-colors cursor-pointer shadow-xs z-10"
+                                                                        title="Remove media"
+                                                                    >
+                                                                        <XIcon className="size-3" />
+                                                                    </button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    {/* File info and button to add more images */}
+                                                    <div className="flex items-center justify-between gap-2 px-0.5 pt-0.5">
+                                                        <span className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">
+                                                            {hasVideo ? "1 video attached (max 1)" : `${allPreviewMediaUrls.length}/4 image(s) attached`}
+                                                        </span>
                                                         <input
                                                             type="file"
                                                             ref={fileInputRef}
+                                                            multiple
                                                             accept="image/*,video/*"
                                                             className="hidden"
-                                                            onChange={(e) => e.target.files?.[0] && setMediaFile(e.target.files[0])}
+                                                            onChange={(e) => e.target.files && handleAddFiles(e.target.files)}
                                                         />
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => fileInputRef.current?.click()}
-                                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-colors cursor-pointer shrink-0 shadow-2xs"
-                                                        >
-                                                            <PlusIcon className="size-3.5" />
-                                                            <span>Replace</span>
-                                                        </button>
+                                                        {!hasVideo && allPreviewMediaUrls.length < 4 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => fileInputRef.current?.click()}
+                                                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-colors cursor-pointer shrink-0 shadow-2xs"
+                                                            >
+                                                                <PlusIcon className="size-3" />
+                                                                <span>Add Image</span>
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
                                             ) : (
@@ -597,17 +680,18 @@ const Scheduler = () => {
                                                         </div>
                                                         <div className="text-center">
                                                             <span className="text-xs font-semibold text-slate-700 dark:text-zinc-200 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors block">
-                                                                Click or drag & drop video or image
+                                                                Click or drag & drop (up to 4 images or 1 video)
                                                             </span>
                                                             <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 block">
-                                                                MP4, MOV, WEBM, PNG, JPG up to 100MB
+                                                                Twitter supports up to 4 images or 1 video (MP4, PNG, JPG)
                                                             </span>
                                                         </div>
                                                         <input
                                                             type="file"
+                                                            multiple
                                                             accept="image/*,video/*"
                                                             className="hidden"
-                                                            onChange={(e) => e.target.files?.[0] && setMediaFile(e.target.files[0])}
+                                                            onChange={(e) => e.target.files && handleAddFiles(e.target.files)}
                                                         />
                                                     </label>
                                                 </div>
@@ -727,7 +811,7 @@ const Scheduler = () => {
                             {/* Selected Platform Preview Component */}
                             <div className="w-full flex justify-center">
                                 {currentPlatformId === "twitter" && (
-                                    <TwitterPostPreview content={content} mediaUrl={previewMediaUrl} mediaType={activeMediaType} user={user} />
+                                    <TwitterPostPreview content={content} mediaUrl={previewMediaUrl} mediaUrls={allPreviewMediaUrls} mediaType={activeMediaType} user={user} />
                                 )}
                                 {currentPlatformId === "linkedin" && (
                                     <LinkedInPostPreview content={content} mediaUrl={previewMediaUrl} mediaType={activeMediaType} user={user} />
@@ -882,7 +966,9 @@ const Scheduler = () => {
                                         getFilteredPosts(scheduled).map((post) => {
                                             const isExpanded = expandedPostIds.includes(post._id);
                                             const isLongText = (post.content || "").length > 140;
-                                            const isVideo = post.mediaType === "video" || (post.mediaUrl && (/\.(mp4|webm|mov|mkv|ogg)$/i.test(post.mediaUrl) || post.mediaUrl.includes("/video/upload/")));
+                                            const firstMediaUrl = post.mediaUrl || (Array.isArray(post.mediaUrls) ? post.mediaUrls[0] : "");
+                                            const isVideo = post.mediaType === "video" || (firstMediaUrl && (/\.(mp4|webm|mov|mkv|ogg)$/i.test(firstMediaUrl) || firstMediaUrl.includes("/video/upload/")));
+                                            const mediaCount = Array.isArray(post.mediaUrls) && post.mediaUrls.length > 0 ? post.mediaUrls.length : (post.mediaUrl ? 1 : 0);
 
                                             return (
                                                 <div
@@ -949,11 +1035,12 @@ const Scheduler = () => {
                                                         </div>
 
                                                         {/* Thumbnail Preview */}
-                                                        {post.mediaUrl && (
+                                                        {firstMediaUrl && (
                                                             <PostThumbnail
-                                                                mediaUrl={post.mediaUrl}
+                                                                mediaUrl={firstMediaUrl}
                                                                 isVideo={Boolean(isVideo)}
-                                                                onClick={() => setPreviewModalMedia({ url: post.mediaUrl, type: isVideo ? "video" : "image" })}
+                                                                count={mediaCount}
+                                                                onClick={() => setPreviewModalMedia({ url: firstMediaUrl, type: isVideo ? "video" : "image" })}
                                                             />
                                                         )}
                                                     </div>
@@ -965,10 +1052,10 @@ const Scheduler = () => {
                                                             <span>{new Date(post.scheduledFor).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                                                         </div>
 
-                                                        {post.mediaUrl && (
+                                                        {firstMediaUrl && (
                                                             <span className="flex items-center gap-1 font-medium text-slate-500 dark:text-zinc-400">
                                                                 {isVideo ? <FilmIcon className="size-3" /> : <ImageIcon className="size-3" />}
-                                                                <span className="capitalize">{isVideo ? "video" : "image"}</span>
+                                                                <span className="capitalize">{isVideo ? "video" : (mediaCount > 1 ? `${mediaCount} images` : "image")}</span>
                                                             </span>
                                                         )}
                                                     </div>
@@ -1011,7 +1098,9 @@ const Scheduler = () => {
                                         getFilteredPosts(published).map((post) => {
                                             const isExpanded = expandedPostIds.includes(post._id);
                                             const isLongText = (post.content || "").length > 140;
-                                            const isVideo = post.mediaType === "video" || (post.mediaUrl && (/\.(mp4|webm|mov|mkv|ogg)$/i.test(post.mediaUrl) || post.mediaUrl.includes("/video/upload/")));
+                                            const firstMediaUrl = post.mediaUrl || (Array.isArray(post.mediaUrls) ? post.mediaUrls[0] : "");
+                                            const isVideo = post.mediaType === "video" || (firstMediaUrl && (/\.(mp4|webm|mov|mkv|ogg)$/i.test(firstMediaUrl) || firstMediaUrl.includes("/video/upload/")));
+                                            const mediaCount = Array.isArray(post.mediaUrls) && post.mediaUrls.length > 0 ? post.mediaUrls.length : (post.mediaUrl ? 1 : 0);
 
                                             return (
                                                 <div
@@ -1063,11 +1152,12 @@ const Scheduler = () => {
                                                         </div>
 
                                                         {/* Thumbnail Preview */}
-                                                        {post.mediaUrl && (
+                                                        {firstMediaUrl && (
                                                             <PostThumbnail
-                                                                mediaUrl={post.mediaUrl}
+                                                                mediaUrl={firstMediaUrl}
                                                                 isVideo={Boolean(isVideo)}
-                                                                onClick={() => setPreviewModalMedia({ url: post.mediaUrl, type: isVideo ? "video" : "image" })}
+                                                                count={mediaCount}
+                                                                onClick={() => setPreviewModalMedia({ url: firstMediaUrl, type: isVideo ? "video" : "image" })}
                                                             />
                                                         )}
                                                     </div>
@@ -1079,10 +1169,10 @@ const Scheduler = () => {
                                                             <span>{new Date(post.updatedAt || post.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                                                         </div>
 
-                                                        {post.mediaUrl && (
+                                                        {firstMediaUrl && (
                                                             <span className="flex items-center gap-1 font-medium text-slate-500 dark:text-zinc-400">
                                                                 {isVideo ? <FilmIcon className="size-3" /> : <ImageIcon className="size-3" />}
-                                                                <span className="capitalize">{isVideo ? "video" : "image"}</span>
+                                                                <span className="capitalize">{isVideo ? "video" : (mediaCount > 1 ? `${mediaCount} images` : "image")}</span>
                                                             </span>
                                                         )}
                                                     </div>
@@ -1114,12 +1204,18 @@ const Scheduler = () => {
                                     getFilteredPosts(posts.filter((p) => p.status === historyFilter)).map((post) => {
                                         const isExpanded = expandedPostIds.includes(post._id);
                                         const isLongText = (post.content || "").length > 140;
-                                        const isVideo = post.mediaType === "video" || (post.mediaUrl && (/\.(mp4|webm|mov|mkv|ogg)$/i.test(post.mediaUrl) || post.mediaUrl.includes("/video/upload/")));
+                                        const firstMediaUrl = post.mediaUrl || (Array.isArray(post.mediaUrls) ? post.mediaUrls[0] : "");
+                                        const isVideo = post.mediaType === "video" || (firstMediaUrl && (/\.(mp4|webm|mov|mkv|ogg)$/i.test(firstMediaUrl) || firstMediaUrl.includes("/video/upload/")));
+                                        const mediaCount = Array.isArray(post.mediaUrls) && post.mediaUrls.length > 0 ? post.mediaUrls.length : (post.mediaUrl ? 1 : 0);
 
                                         return (
                                             <div
                                                 key={post._id}
-                                                className="group relative bg-slate-50/60 dark:bg-zinc-900/60 hover:bg-white dark:hover:bg-zinc-900 p-4 rounded-2xl transition-all duration-150 border border-slate-200/80 dark:border-zinc-800 shadow-2xs hover:shadow-xs flex flex-col gap-3"
+                                                className={`group relative bg-slate-50/60 dark:bg-zinc-900/60 hover:bg-white dark:hover:bg-zinc-900 p-4 rounded-2xl transition-all duration-150 border shadow-2xs hover:shadow-xs flex flex-col gap-3 ${
+                                                    post.status === "failed" 
+                                                        ? "border-rose-200 dark:border-rose-900/60 hover:border-rose-400 dark:hover:border-rose-600" 
+                                                        : "border-slate-200/80 dark:border-zinc-800"
+                                                }`}
                                             >
                                                 {/* Top Row */}
                                                 <div className="flex items-center justify-between gap-2">
@@ -1130,9 +1226,9 @@ const Scheduler = () => {
                                                             const Icon = meta.icon;
                                                             return (
                                                                 <span
-                                                                    key={pl}
-                                                                    title={meta.name || pl}
-                                                                    className="p-1 rounded-lg bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 shadow-2xs inline-flex items-center justify-center"
+                                                                  key={pl}
+                                                                  title={meta.name || pl}
+                                                                  className="p-1 rounded-lg bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 shadow-2xs inline-flex items-center justify-center"
                                                                 >
                                                                     <Icon className="size-3.5" />
                                                                 </span>
@@ -1196,14 +1292,50 @@ const Scheduler = () => {
                                                         )}
                                                     </div>
 
-                                                    {post.mediaUrl && (
+                                                    {firstMediaUrl && (
                                                         <PostThumbnail
-                                                            mediaUrl={post.mediaUrl}
+                                                            mediaUrl={firstMediaUrl}
                                                             isVideo={Boolean(isVideo)}
-                                                            onClick={() => setPreviewModalMedia({ url: post.mediaUrl, type: isVideo ? "video" : "image" })}
+                                                            count={mediaCount}
+                                                            onClick={() => setPreviewModalMedia({ url: firstMediaUrl, type: isVideo ? "video" : "image" })}
                                                         />
                                                     )}
                                                 </div>
+
+                                                {/* Failure Reason Alert Banner for Failed Posts */}
+                                                {post.status === "failed" && (
+                                                    <div className="p-3 rounded-xl bg-rose-50/90 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 text-rose-700 dark:text-rose-300 text-xs flex items-start justify-between gap-2.5">
+                                                        <div className="flex items-start gap-2 min-w-0">
+                                                            <AlertCircleIcon className="size-4 shrink-0 mt-0.5 text-rose-500" />
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="font-bold text-[11px] uppercase tracking-wider text-rose-600 dark:text-rose-400 block mb-0.5">
+                                                                    Failure Reason
+                                                                </span>
+                                                                <p className="wrap-break-word leading-relaxed text-xs">
+                                                                    {post.failedReason || "The social platform API rejected this post. Check duplicate content, rate limits, or media requirements."}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setContent(post.content);
+                                                                if (Array.isArray(post.platforms)) setSelectedPlatforms(post.platforms);
+                                                                if (Array.isArray(post.mediaUrls) && post.mediaUrls.length > 0) {
+                                                                    setExistingMediaUrls(post.mediaUrls);
+                                                                } else if (post.mediaUrl) {
+                                                                    setExistingMediaUrls([post.mediaUrl]);
+                                                                }
+                                                                setActiveTab("create");
+                                                                toast.success("Loaded failed post into Composer for editing");
+                                                            }}
+                                                            className="shrink-0 px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[11px] transition-colors cursor-pointer shadow-xs"
+                                                            title="Edit and retry scheduling"
+                                                        >
+                                                            Re-edit
+                                                        </button>
+                                                    </div>
+                                                )}
 
                                                 {/* Bottom Row */}
                                                 <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/60 dark:border-zinc-800/80 text-[11px] text-slate-400 dark:text-zinc-500">
@@ -1212,10 +1344,10 @@ const Scheduler = () => {
                                                         <span>{new Date(post.scheduledFor || post.createdAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
                                                     </div>
 
-                                                    {post.mediaUrl && (
+                                                    {firstMediaUrl && (
                                                         <span className="flex items-center gap-1 font-medium text-slate-500 dark:text-zinc-400">
                                                             {isVideo ? <FilmIcon className="size-3" /> : <ImageIcon className="size-3" />}
-                                                            <span className="capitalize">{isVideo ? "video" : "image"}</span>
+                                                            <span className="capitalize">{isVideo ? "video" : (mediaCount > 1 ? `${mediaCount} images` : "image")}</span>
                                                         </span>
                                                     )}
                                                 </div>

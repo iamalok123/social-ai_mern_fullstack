@@ -12,6 +12,8 @@ import {
 interface TwitterProps {
     content: string;
     mediaUrl?: string | null;
+    mediaUrls?: string[] | null;
+    mediaItems?: { url: string; type?: "image" | "video" | string }[] | null;
     mediaType?: "image" | "video" | null;
     user?: {
         name?: string;
@@ -28,17 +30,28 @@ const VerifiedBadge = () => (
     </svg>
 );
 
-export const TwitterPostPreview: React.FC<TwitterProps> = ({ content, mediaUrl, mediaType, user }) => {
+export const TwitterPostPreview: React.FC<TwitterProps> = ({ content, mediaUrl, mediaUrls, mediaItems, mediaType, user }) => {
     const displayName = user?.name || "Vedant Mahajan";
     const username = user?.name
         ? `@${user.name.toLowerCase().replace(/[^a-z0-9]/g, "")}`
         : "@vedx09";
 
+    // Collect all media URLs
+    const allMediaUrls: string[] = [];
+    if (Array.isArray(mediaUrls) && mediaUrls.length > 0) {
+        allMediaUrls.push(...mediaUrls.filter(Boolean));
+    } else if (Array.isArray(mediaItems) && mediaItems.length > 0) {
+        allMediaUrls.push(...mediaItems.map(i => i.url).filter(Boolean));
+    } else if (mediaUrl) {
+        allMediaUrls.push(mediaUrl);
+    }
+
+    const firstUrl = allMediaUrls[0] || "";
     const isVideo = mediaType === "video" || (
-        mediaType !== "image" && Boolean(mediaUrl) && (
-            /\.(mp4|webm|mov|ogg|mkv)$/i.test(mediaUrl || "") ||
-            (mediaUrl || "").includes("/video/upload/") ||
-            (mediaUrl || "").startsWith("blob:")
+        mediaType !== "image" && Boolean(firstUrl) && (
+            /\.(mp4|webm|mov|ogg|mkv)$/i.test(firstUrl) ||
+            firstUrl.includes("/video/upload/") ||
+            firstUrl.startsWith("blob:")
         )
     );
 
@@ -129,18 +142,38 @@ export const TwitterPostPreview: React.FC<TwitterProps> = ({ content, mediaUrl, 
             </div>
 
             {/* Media Attachment (If Image/Video attached) */}
-            {mediaUrl && (
-                <div className="mt-3.5 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 shadow-xs">
+            {allMediaUrls.length > 0 && (
+                <div className="mt-3.5">
                     {isVideo ? (
-                        <div className="relative w-full aspect-video bg-black flex items-center justify-center">
-                            <video src={mediaUrl} controls className="w-full h-full object-cover" />
+                        <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-black aspect-video flex items-center justify-center shadow-xs">
+                            <video src={firstUrl} controls className="w-full h-full object-cover" />
+                        </div>
+                    ) : allMediaUrls.length === 1 ? (
+                        <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 shadow-xs">
+                            <img
+                                src={allMediaUrls[0]}
+                                alt="Post media preview"
+                                className="w-full max-h-80 object-cover"
+                            />
+                        </div>
+                    ) : allMediaUrls.length === 2 ? (
+                        <div className="grid grid-cols-2 gap-1 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 shadow-xs aspect-video">
+                            <img src={allMediaUrls[0]} alt="Media 1" className="w-full h-full object-cover" />
+                            <img src={allMediaUrls[1]} alt="Media 2" className="w-full h-full object-cover" />
+                        </div>
+                    ) : allMediaUrls.length === 3 ? (
+                        <div className="grid grid-cols-2 grid-rows-2 gap-1 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 shadow-xs aspect-video">
+                            <img src={allMediaUrls[0]} alt="Media 1" className="w-full h-full object-cover row-span-2" />
+                            <img src={allMediaUrls[1]} alt="Media 2" className="w-full h-full object-cover" />
+                            <img src={allMediaUrls[2]} alt="Media 3" className="w-full h-full object-cover" />
                         </div>
                     ) : (
-                        <img
-                            src={mediaUrl}
-                            alt="Post media preview"
-                            className="w-full max-h-80 object-cover"
-                        />
+                        <div className="grid grid-cols-2 grid-rows-2 gap-1 rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 shadow-xs aspect-video">
+                            <img src={allMediaUrls[0]} alt="Media 1" className="w-full h-full object-cover" />
+                            <img src={allMediaUrls[1]} alt="Media 2" className="w-full h-full object-cover" />
+                            <img src={allMediaUrls[2]} alt="Media 3" className="w-full h-full object-cover" />
+                            <img src={allMediaUrls[3]} alt="Media 4" className="w-full h-full object-cover" />
+                        </div>
                     )}
                 </div>
             )}

@@ -42,23 +42,47 @@ export const evaluateScheduledPosts = async () => {
                     accountId: acc.zernioAccountId!
                 }));
 
-                const resolvedMediaType = post.mediaType || (
-                    post.mediaUrl ? (/\.(mp4|webm|mov|mkv|ogg)$/i.test(post.mediaUrl) || post.mediaUrl.includes("/video/") ? "video" : "image") : undefined
-                );
+                // Build mediaItems payload from mediaItems array, mediaUrls array, or legacy single mediaUrl
+                let mediaItemsPayload: { type: "image" | "video"; url: string }[] = [];
+                if (Array.isArray((post as any).mediaItems) && (post as any).mediaItems.length > 0) {
+                    mediaItemsPayload = (post as any).mediaItems.map((item: any) => ({
+                        type: item.type || "image",
+                        url: item.url
+                    }));
+                } else if (Array.isArray((post as any).mediaUrls) && (post as any).mediaUrls.length > 0) {
+                    mediaItemsPayload = (post as any).mediaUrls.map((url: string) => ({
+                        type: (/\.(mp4|webm|mov|mkv|ogg)$/i.test(url) || url.includes("/video/")) ? "video" : "image",
+                        url
+                    }));
+                } else if (post.mediaUrl) {
+                    const resolvedMediaType = post.mediaType || (
+                        (/\.(mp4|webm|mov|mkv|ogg)$/i.test(post.mediaUrl) || post.mediaUrl.includes("/video/")) ? "video" : "image"
+                    );
+                    mediaItemsPayload = [{
+                        type: resolvedMediaType,
+                        url: post.mediaUrl
+                    }];
+                }
+
+                // If targeting Twitter, ensure limit of max 4 images
+                if (post.platforms.includes("twitter")) {
+                    const images = mediaItemsPayload.filter(m => m.type === "image");
+                    const videos = mediaItemsPayload.filter(m => m.type === "video");
+                    if (videos.length > 0) {
+                        mediaItemsPayload = [videos[0]];
+                    } else if (images.length > 4) {
+                        mediaItemsPayload = images.slice(0, 4);
+                    }
+                }
 
                 const payload = {
                     content: post.content,
                     publishNow: true,
-                    ...(post.mediaUrl ? {
-                        mediaItems: [{
-                            type: resolvedMediaType || "image",
-                            url: post.mediaUrl
-                        }]
-                    } : {}),
+                    ...(mediaItemsPayload.length > 0 ? { mediaItems: mediaItemsPayload } : {}),
                     platforms: zernioPlatforms,
                 };
 
-                console.log(`Publishing post ${post._id} to Zernio (Type: ${resolvedMediaType || "text"}) with media: ${post.mediaUrl || "none"}`);
+                console.log(`Publishing post ${post._id} to Zernio with ${mediaItemsPayload.length} media item(s)`);
 
                 const response = await zernio.posts.createPost({
                     body: payload as any
@@ -73,6 +97,7 @@ export const evaluateScheduledPosts = async () => {
                 console.log(`Zernio post created: ${publishedPost._id || publishedPost.id}`);
 
                 post.status = "published";
+                (post as any).failedReason = undefined;
                 await post.save();
                 publishedCount++;
 
@@ -83,10 +108,20 @@ export const evaluateScheduledPosts = async () => {
                     relatedPost: post._id,
                 });
             } catch (err: any) {
-                console.error(`Failed to publish post ${post._id} :`, err?.response?.data || err?.message);
+                const rawError = err?.response?.data?.message || err?.response?.data?.error || (typeof err?.response?.data === "string" ? err.response.data : "") || err?.message || "Failed to publish post";
+                const errorMsg = typeof rawError === "string" ? rawError : JSON.stringify(rawError);
+                console.error(`Failed to publish post ${post._id} :`, errorMsg);
                 post.status = "failed";
+                (post as any).failedReason = errorMsg;
                 await post.save();
                 failedCount++;
+
+                await ActivityLog.create({
+                    user: post.user,
+                    actionType: "POST_FAILED",
+                    description: `Failed to publish post: ${errorMsg}`,
+                    relatedPost: post._id,
+                });
             }
         }
 

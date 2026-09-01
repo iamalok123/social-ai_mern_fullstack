@@ -194,7 +194,7 @@ export const deleteGeneration = async (req: AuthRequest, res: Response): Promise
         // Delete associated image from Cloudinary if hosted on Cloudinary and no active post is using it
         if (generation.mediaUrl) {
             const publicId = extractCloudinaryPublicId(generation.mediaUrl);
-            const isUsedInPost = await Post.exists({ mediaUrl: generation.mediaUrl });
+            const isUsedInPost = await Post.exists({ $or: [{ mediaUrl: generation.mediaUrl }, { mediaUrls: generation.mediaUrl }] });
             if (publicId && !isUsedInPost) {
                 try {
                     const cloudRes = await cloudinary.uploader.destroy(publicId);
@@ -258,35 +258,93 @@ export const schedulePost = async (req: AuthRequest, res: Response): Promise<voi
             }
         }
 
-        let mediaUrl: string | undefined = req.body.mediaUrl;
-        let mediaType: "image" | "video" | undefined = req.body.mediaType;
+        const uploadedMediaItems: { url: string; type: "image" | "video" }[] = [];
 
-        if (req.file) {
-            const isVideoFile = req.file.mimetype.startsWith("video/");
-            const result = await new Promise<any>((resolve, reject) => {
-                const stream = cloudinary.uploader.upload_stream({
-                    resource_type: isVideoFile ? "video" : "auto",
-                    folder: "social-ai"
-                }, (error, result) => {
-                    if (error) reject(error);
-                    else resolve(result);
+        // Handle uploaded file(s) via multer array or single
+        const files: Express.Multer.File[] = Array.isArray(req.files)
+            ? (req.files as Express.Multer.File[])
+            : (req.file ? [req.file] : []);
+
+        if (files.length > 0) {
+            const uploadPromises = files.map((file) => {
+                const isVideoFile = file.mimetype.startsWith("video/");
+                return new Promise<{ url: string; type: "image" | "video" }>((resolve, reject) => {
+                    const stream = cloudinary.uploader.upload_stream({
+                        resource_type: isVideoFile ? "video" : "auto",
+                        folder: "social-ai"
+                    }, (error, result) => {
+                        if (error || !result) reject(error || new Error("Cloudinary upload failed"));
+                        else {
+                            resolve({
+                                url: result.secure_url,
+                                type: (result.resource_type === "video" || isVideoFile) ? "video" : "image"
+                            });
+                        }
+                    });
+                    stream.end(file.buffer);
                 });
-                stream.end(req.file!.buffer);
             });
-            mediaUrl = result.secure_url;
-            mediaType = result.resource_type === "video" || isVideoFile ? "video" : "image";
-            console.log(`📹 [POST CONTROLLER] Media uploaded to Cloudinary: ${mediaUrl} (Type: ${mediaType})`);
-        } else if (mediaUrl && !mediaType) {
-            const isVideoUrl = /\.(mp4|webm|mov|mkv|ogg)$/i.test(mediaUrl) || mediaUrl.includes("/video/upload/");
-            mediaType = isVideoUrl ? "video" : "image";
+
+            const uploadResults = await Promise.all(uploadPromises);
+            uploadedMediaItems.push(...uploadResults);
         }
+
+        // Handle existing media URLs passed in body (e.g. from Ideas board or AI generation)
+        let incomingMediaUrls: string[] = [];
+        if (req.body.mediaUrls) {
+            if (typeof req.body.mediaUrls === "string") {
+                try {
+                    const parsed = JSON.parse(req.body.mediaUrls);
+                    if (Array.isArray(parsed)) incomingMediaUrls.push(...parsed);
+                    else incomingMediaUrls.push(req.body.mediaUrls);
+                } catch {
+                    incomingMediaUrls.push(req.body.mediaUrls);
+                }
+            } else if (Array.isArray(req.body.mediaUrls)) {
+                incomingMediaUrls.push(...req.body.mediaUrls);
+            }
+        } else if (req.body.mediaUrl) {
+            incomingMediaUrls.push(req.body.mediaUrl);
+        }
+
+        for (const url of incomingMediaUrls) {
+            if (typeof url === "string" && url.trim() && !uploadedMediaItems.some(item => item.url === url)) {
+                const isVideo = /\.(mp4|webm|mov|mkv|ogg)$/i.test(url) || url.includes("/video/upload/");
+                uploadedMediaItems.push({
+                    url: url.trim(),
+                    type: isVideo ? "video" : "image"
+                });
+            }
+        }
+
+        // Validation for Twitter/X and platform safety
+        const videoCount = uploadedMediaItems.filter(i => i.type === "video").length;
+        const imageCount = uploadedMediaItems.filter(i => i.type === "image").length;
+
+        if (videoCount > 1) {
+            res.status(400).json({ message: "Only 1 video can be attached per post." });
+            return;
+        }
+        if (videoCount === 1 && imageCount > 0) {
+            res.status(400).json({ message: "Cannot mix video and images in a single post." });
+            return;
+        }
+        if (imageCount > 4) {
+            res.status(400).json({ message: "Maximum of 4 images allowed per post." });
+            return;
+        }
+
+        const mediaUrls = uploadedMediaItems.map(i => i.url);
+        const primaryMedia = uploadedMediaItems[0];
 
         const post = await Post.create({
             user: req.user._id,
             content,
             platforms: parsedPlatforms,
-            mediaUrl,
-            mediaType,
+            mediaUrl: primaryMedia?.url,
+            mediaType: primaryMedia?.type,
+            mediaUrls,
+            mediaItems: uploadedMediaItems,
             scheduledFor,
             status: status || "scheduled",
         });
@@ -314,19 +372,28 @@ export const deletePost = async (req: AuthRequest, res: Response): Promise<void>
             return;
         }
 
-        // Delete associated media from Cloudinary if hosted on Cloudinary and no generation is using it
-        if (post.mediaUrl) {
-            const publicId = extractCloudinaryPublicId(post.mediaUrl);
-            const isUsedInGen = await Generation.exists({ mediaUrl: post.mediaUrl });
-            if (publicId && !isUsedInGen) {
-                try {
-                    const isVideo = post.mediaType === "video" || /\.(mp4|webm|mov|mkv|ogg)$/i.test(post.mediaUrl) || post.mediaUrl.includes("/video/upload/");
-                    const cloudRes = await cloudinary.uploader.destroy(publicId, {
-                        resource_type: isVideo ? "video" : "image"
-                    });
-                    console.log(`🗑️ [CLOUDINARY POST MEDIA DELETED] Public ID: ${publicId}, Result:`, cloudRes);
-                } catch (cloudErr: any) {
-                    console.warn(`⚠️ [CLOUDINARY DELETE ERROR] Failed to delete post media ${publicId}:`, cloudErr?.message || cloudErr);
+        // Delete all associated media from Cloudinary if not used in other active posts/generations
+        const urlsToCleanup: string[] = [
+            ...(post.mediaUrls || []),
+            ...(post.mediaUrl ? [post.mediaUrl] : [])
+        ];
+        const uniqueUrls = Array.from(new Set(urlsToCleanup));
+
+        for (const url of uniqueUrls) {
+            const publicId = extractCloudinaryPublicId(url);
+            if (publicId) {
+                const isUsedInOtherPost = await Post.exists({ _id: { $ne: post._id }, $or: [{ mediaUrl: url }, { mediaUrls: url }] });
+                const isUsedInGen = await Generation.exists({ mediaUrl: url });
+                if (!isUsedInOtherPost && !isUsedInGen) {
+                    try {
+                        const isVideo = /\.(mp4|webm|mov|mkv|ogg)$/i.test(url) || url.includes("/video/upload/");
+                        const cloudRes = await cloudinary.uploader.destroy(publicId, {
+                            resource_type: isVideo ? "video" : "image"
+                        });
+                        console.log(`🗑️ [CLOUDINARY POST MEDIA DELETED] Public ID: ${publicId}, Result:`, cloudRes);
+                    } catch (cloudErr: any) {
+                        console.warn(`⚠️ [CLOUDINARY DELETE ERROR] Failed to delete post media ${publicId}:`, cloudErr?.message || cloudErr);
+                    }
                 }
             }
         }
