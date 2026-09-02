@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Sidebar from "./Sidebar";
+import ThemeToggle from "./ThemeToggle";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { MenuIcon } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -65,6 +66,11 @@ const Layout = () => {
                                 Manage and automate your social presence
                             </p>
                         </div>
+                    </div>
+
+                    {/* Right-aligned Theme Toggle with smooth global transition */}
+                    <div className="flex items-center gap-3">
+                        <ThemeToggle />
                     </div>
                 </header>
 

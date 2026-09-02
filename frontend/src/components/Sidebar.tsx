@@ -1,8 +1,9 @@
-import { CalendarDaysIcon, LayoutDashboardIcon, LogOutIcon, UsersIcon, Wand2Icon, XIcon, KeyRoundIcon, Menu, LightbulbIcon } from "lucide-react";
+import { CalendarDaysIcon, LayoutDashboardIcon, LogOutIcon, UsersIcon, Wand2Icon, XIcon, KeyRoundIcon, Menu, LightbulbIcon, SunIcon, MoonIcon } from "lucide-react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext.tsx";
+import { useTheme } from "../context/ThemeContext.tsx";
 
 interface SidebarProps {
     isOpen: boolean;
@@ -21,6 +22,7 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { logout, user } = useAuth();
+    const { theme, toggleTheme } = useTheme();
 
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [imgError, setImgError] = useState(false);
@@ -132,6 +134,40 @@ const Sidebar = ({ isOpen, setIsOpen }: SidebarProps) => {
                             </div>
                             <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">{user?.email || ""}</p>
                         </div>
+
+                        {/* Theme Toggle Option */}
+                        <button
+                            type="button"
+                            onClick={toggleTheme}
+                            className="flex items-center justify-between px-2.5 py-2 w-full rounded-xl text-xs text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-800/80 transition-colors cursor-pointer select-none group font-medium"
+                            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+                        >
+                            <div className="flex items-center gap-2.5">
+                                <div className="size-5 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-600 dark:text-zinc-300 group-hover:text-orange-500 transition-colors">
+                                    {theme === "dark" ? (
+                                        <MoonIcon className="size-3.5 text-amber-400 fill-amber-400" />
+                                    ) : (
+                                        <SunIcon className="size-3.5 text-amber-500 fill-amber-500" />
+                                    )}
+                                </div>
+                                <span className="text-slate-800 dark:text-zinc-200">
+                                    {theme === "dark" ? "Dark Mode" : "Light Mode"}
+                                </span>
+                            </div>
+
+                            {/* Minimal Smooth Toggle Pill */}
+                            <div
+                                className={`relative flex items-center w-8 h-4.5 rounded-full p-0.5 transition-colors duration-300 ${
+                                    theme === "dark" ? "bg-orange-500" : "bg-slate-300 dark:bg-zinc-700"
+                                }`}
+                            >
+                                <span
+                                    className={`size-3.5 rounded-full bg-white shadow-xs transition-transform duration-300 transform flex items-center justify-center ${
+                                        theme === "dark" ? "translate-x-3.5" : "translate-x-0"
+                                    }`}
+                                />
+                            </div>
+                        </button>
 
                         {/* Change Password Option */}
                         <button
