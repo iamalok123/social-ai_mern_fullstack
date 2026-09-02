@@ -1,4 +1,4 @@
-import { CheckIcon, Loader2Icon, PlusIcon, UnplugIcon } from "lucide-react";
+import { CheckIcon, Loader2Icon, PlusIcon, UnplugIcon, AlertTriangleIcon, RefreshCwIcon } from "lucide-react";
 import { PLATFORMS } from "../../assets/assets";
 
 interface AccountListProps {
@@ -15,11 +15,11 @@ const AccountList = ({ accounts, connecting, onConnect, onDisconnect }: AccountL
         await onDisconnect(accountId);
     };
 
-    // 1. Identify connected platforms
-    const connectedPlatformIds = new Set(accounts.map((acc) => acc.platform));
+    // 1. Identify platforms that have any connected or disconnected account
+    const existingPlatformIds = new Set(accounts.map((acc) => acc.platform));
 
-    // Connected rows: sorted alphabetically by platform name
-    const connectedRows = accounts
+    // Existing rows: sorted alphabetically by platform name
+    const existingRows = accounts
         .map((acc) => {
             const meta = PLATFORMS.find((p) => p.id === acc.platform) || {
                 id: acc.platform,
@@ -28,13 +28,17 @@ const AccountList = ({ accounts, connecting, onConnect, onDisconnect }: AccountL
                 description: "Connected account",
                 color: "#f97316",
             };
+            const isConnected = acc.status === "connected";
+            const isDisconnected = acc.status === "disconnected";
+
             return {
                 key: acc._id,
                 platformId: acc.platform,
                 name: meta.name,
                 meta,
                 account: acc,
-                isConnected: true,
+                isConnected,
+                isDisconnected,
                 handle: acc.handle,
             };
         })
@@ -42,7 +46,7 @@ const AccountList = ({ accounts, connecting, onConnect, onDisconnect }: AccountL
 
     // Unconnected rows: sorted alphabetically by platform name
     const unconnectedRows = PLATFORMS
-        .filter((p) => !connectedPlatformIds.has(p.id))
+        .filter((p) => !existingPlatformIds.has(p.id))
         .map((p) => ({
             key: p.id,
             platformId: p.id,
@@ -50,12 +54,13 @@ const AccountList = ({ accounts, connecting, onConnect, onDisconnect }: AccountL
             meta: p,
             account: null,
             isConnected: false,
+            isDisconnected: false,
             handle: null,
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
 
-    // Connected accounts at the top, unconnected accounts below alphabetically
-    const allRows = [...connectedRows, ...unconnectedRows];
+    // Connected & active accounts at the top, followed by disconnected, then unconnected
+    const allRows = [...existingRows, ...unconnectedRows];
 
     return (
         <div className="space-y-3">
@@ -83,6 +88,8 @@ const AccountList = ({ accounts, connecting, onConnect, onDisconnect }: AccountL
                                 <div className="absolute -right-1 -bottom-1 flex h-4 w-4 items-center justify-center rounded-full bg-white dark:bg-zinc-950 p-0.5 shadow-xs">
                                     {row.isConnected ? (
                                         <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20" />
+                                    ) : row.isDisconnected ? (
+                                        <div className="h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-amber-500/20 animate-pulse" />
                                     ) : (
                                         <div className="flex h-2.5 w-2.5 items-center justify-center rounded-full bg-slate-200 dark:bg-zinc-800 text-[9px] font-bold text-slate-500 dark:text-zinc-400">
                                             +
@@ -102,10 +109,16 @@ const AccountList = ({ accounts, connecting, onConnect, onDisconnect }: AccountL
                                             Connected
                                         </span>
                                     )}
+                                    {row.isDisconnected && (
+                                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-900/60 shrink-0">
+                                            <AlertTriangleIcon className="size-3" />
+                                            Token Expired
+                                        </span>
+                                    )}
                                 </div>
 
                                 <span className="text-xs text-slate-500 dark:text-zinc-400 truncate mt-0.5">
-                                    {row.isConnected
+                                    {row.isConnected || row.isDisconnected
                                         ? row.handle
                                             ? row.handle.startsWith("@")
                                                 ? row.handle
@@ -116,9 +129,31 @@ const AccountList = ({ accounts, connecting, onConnect, onDisconnect }: AccountL
                             </div>
                         </div>
 
-                        {/* Action Button: Disconnect (Red/Destructive) or Connect (Orange/Primary) */}
-                        <div>
-                            {row.isConnected ? (
+                        {/* Action Button: Disconnect or Reconnect or Connect */}
+                        <div className="flex items-center gap-2">
+                            {row.isDisconnected ? (
+                                <>
+                                    <button
+                                        disabled={isConnecting}
+                                        onClick={() => onConnect(row.platformId)}
+                                        className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-amber-500 hover:bg-amber-600 text-white shadow-xs transition-all cursor-pointer flex items-center gap-1.5 justify-center disabled:opacity-60"
+                                    >
+                                        {isConnecting ? (
+                                            <Loader2Icon className="size-3.5 animate-spin" />
+                                        ) : (
+                                            <RefreshCwIcon className="size-3.5" />
+                                        )}
+                                        <span>Reconnect</span>
+                                    </button>
+                                    <button
+                                        onClick={() => handleDisconnect(row.account._id)}
+                                        className="p-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all cursor-pointer"
+                                        title="Remove disconnected account"
+                                    >
+                                        <UnplugIcon className="size-3.5" />
+                                    </button>
+                                </>
+                            ) : row.isConnected ? (
                                 <button
                                     onClick={() => handleDisconnect(row.account._id)}
                                     className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 border border-red-200/70 dark:bg-red-950/30 dark:hover:bg-red-900/50 dark:text-red-400 dark:border-red-900/60 transition-all cursor-pointer flex items-center gap-1.5 min-w-25 justify-center"

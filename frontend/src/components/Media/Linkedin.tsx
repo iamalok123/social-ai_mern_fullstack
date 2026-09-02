@@ -32,6 +32,9 @@ export interface LinkedInProps {
     mediaType?: "image" | "video" | null;
     user?: LinkedInUser | null;
     linkPreview?: LinkedInLinkPreview | null;
+    firstComment?: string;
+    disableLinkPreview?: boolean;
+    onOpenMediaModal?: () => void;
 }
 
 export type LinkedInPostPreviewProps = LinkedInProps;
@@ -64,8 +67,12 @@ export const LinkedInPostPreview: React.FC<LinkedInProps> = ({
     mediaUrls,
     mediaType,
     user,
-    linkPreview
+    linkPreview,
+    firstComment,
+    disableLinkPreview = false,
+    onOpenMediaModal,
 }) => {
+    const [isExpanded, setIsExpanded] = React.useState(false);
     const displayName = user?.name || "Vedant Mahajan";
     const userHeadline = user?.headline || "Software Engineer | Full Stack & AI Solutions";
 
@@ -193,9 +200,25 @@ export const LinkedInPostPreview: React.FC<LinkedInProps> = ({
                     <div key={idx} className="relative h-44 w-full">
                         <img src={url} alt={`Media ${idx + 1}`} className="w-full h-full object-cover" />
                         {idx === 3 && remaining > 0 && (
-                            <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center text-white font-bold text-xl backdrop-blur-xs">
-                                +{remaining}
-                            </div>
+                            onOpenMediaModal ? (
+                                <button
+                                    type="button"
+                                    onClick={onOpenMediaModal}
+                                    className="absolute inset-0 bg-slate-950/65 hover:bg-slate-950/80 flex flex-col items-center justify-center text-white font-bold backdrop-blur-xs transition-all cursor-pointer group/tile select-none"
+                                    title={`Click to view all ${mediaList.length} images & manage gallery`}
+                                >
+                                    <span className="text-2xl font-black group-hover/tile:scale-110 transition-transform">
+                                        +{remaining}
+                                    </span>
+                                    <span className="text-[10px] font-semibold text-sky-300 opacity-90 group-hover/tile:opacity-100 flex items-center gap-1 mt-0.5">
+                                        Manage
+                                    </span>
+                                </button>
+                            ) : (
+                                <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center text-white font-bold text-xl backdrop-blur-xs">
+                                    +{remaining}
+                                </div>
+                            )
                         )}
                     </div>
                 ))}
@@ -256,9 +279,33 @@ export const LinkedInPostPreview: React.FC<LinkedInProps> = ({
                 </div>
             </div>
 
-            {/* Post Text Content Body */}
+            {/* Post Text Content Body with 210-char "See more" Fold */}
             <div className="px-4 py-2 text-sm leading-relaxed text-slate-800 dark:text-zinc-100 whitespace-pre-wrap wrap-break-word">
-                {renderFormattedContent(content)}
+                {content.length > 210 && !isExpanded ? (
+                    <>
+                        {renderFormattedContent(content.slice(0, 210))}
+                        <button
+                            type="button"
+                            onClick={() => setIsExpanded(true)}
+                            className="text-slate-500 dark:text-zinc-400 hover:text-[#0a66c2] dark:hover:text-sky-400 font-semibold ml-1 cursor-pointer transition-colors"
+                        >
+                            ...see more
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        {renderFormattedContent(content)}
+                        {content.length > 210 && (
+                            <button
+                                type="button"
+                                onClick={() => setIsExpanded(false)}
+                                className="text-[#0a66c2] dark:text-sky-400 hover:underline font-semibold ml-1.5 cursor-pointer text-xs transition-colors"
+                            >
+                                see less
+                            </button>
+                        )}
+                    </>
+                )}
             </div>
 
             {/* Media Area (Images / Multi-Image Grid / Videos) */}
@@ -268,8 +315,8 @@ export const LinkedInPostPreview: React.FC<LinkedInProps> = ({
                 </div>
             )}
 
-            {/* Link Preview Callout Banner (If provided or if link preview is set) */}
-            {linkPreview && (
+            {/* Link Preview Callout Banner (Suppressed if disableLinkPreview is true) */}
+            {!disableLinkPreview && linkPreview && (
                 <div className="border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50 p-3 flex items-center justify-between gap-3">
                     <div className="flex flex-col min-w-0">
                         <span className="text-xs font-semibold text-slate-900 dark:text-white truncate">
@@ -349,6 +396,30 @@ export const LinkedInPostPreview: React.FC<LinkedInProps> = ({
                     <span>Send</span>
                 </button>
             </div>
+
+            {/* Auto-posted First Comment Live Preview */}
+            {firstComment && firstComment.trim() && (
+                <div className="bg-slate-50/80 dark:bg-zinc-950/60 border-t border-slate-200/80 dark:border-zinc-800/80 p-3.5 animate-in fade-in duration-200">
+                    <div className="flex items-start gap-2.5">
+                        <div className="size-7 rounded-full bg-linear-to-tr from-[#0a66c2] to-blue-700 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-2xs">
+                            {displayName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-zinc-800 rounded-xl p-2.5 shadow-2xs">
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                                <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                    {displayName}
+                                </span>
+                                <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200/60 dark:border-emerald-900/60">
+                                    Auto 1st Comment
+                                </span>
+                            </div>
+                            <p className="text-xs text-slate-700 dark:text-zinc-300 whitespace-pre-wrap wrap-break-word">
+                                {renderFormattedContent(firstComment)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

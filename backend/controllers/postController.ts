@@ -233,7 +233,7 @@ export const getPosts = async (req: AuthRequest, res: Response): Promise<void> =
 // POST /api/posts
 export const schedulePost = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
-        const { content, platforms, scheduledFor, status } = req.body;
+        const { content, platforms, scheduledFor, status, firstComment, disableLinkPreview, platformSpecificData } = req.body;
 
         if (!content) {
             res.status(400).json({ message: "Post content is required." });
@@ -317,7 +317,7 @@ export const schedulePost = async (req: AuthRequest, res: Response): Promise<voi
             }
         }
 
-        // Validation for Twitter/X and platform safety
+        // Validation for Twitter/X vs LinkedIn platform safety
         const videoCount = uploadedMediaItems.filter(i => i.type === "video").length;
         const imageCount = uploadedMediaItems.filter(i => i.type === "image").length;
 
@@ -329,13 +329,35 @@ export const schedulePost = async (req: AuthRequest, res: Response): Promise<voi
             res.status(400).json({ message: "Cannot mix video and images in a single post." });
             return;
         }
-        if (imageCount > 4) {
-            res.status(400).json({ message: "Maximum of 4 images allowed per post." });
+
+        // Dynamic image limits: Twitter allows max 4; LinkedIn allows up to 20 images
+        const isTwitter = parsedPlatforms.includes("twitter");
+        const maxImages = isTwitter ? 4 : 20;
+
+        if (imageCount > maxImages) {
+            res.status(400).json({
+                message: isTwitter
+                    ? "Twitter/X allows a maximum of 4 images per post. Deselect Twitter to upload up to 20 images for LinkedIn."
+                    : "Maximum of 20 images allowed per post."
+            });
             return;
         }
 
         const mediaUrls = uploadedMediaItems.map(i => i.url);
         const primaryMedia = uploadedMediaItems[0];
+
+        // Parse disableLinkPreview and platformSpecificData safely
+        const parsedDisableLinkPreview = disableLinkPreview === true || disableLinkPreview === "true";
+        let parsedPlatformSpecificData: any = {};
+        if (platformSpecificData) {
+            try {
+                parsedPlatformSpecificData = typeof platformSpecificData === "string"
+                    ? JSON.parse(platformSpecificData)
+                    : platformSpecificData;
+            } catch {
+                parsedPlatformSpecificData = {};
+            }
+        }
 
         const post = await Post.create({
             user: req.user._id,
@@ -347,6 +369,9 @@ export const schedulePost = async (req: AuthRequest, res: Response): Promise<voi
             mediaItems: uploadedMediaItems,
             scheduledFor,
             status: status || "scheduled",
+            firstComment: typeof firstComment === "string" && firstComment.trim() ? firstComment.trim() : undefined,
+            disableLinkPreview: parsedDisableLinkPreview,
+            platformSpecificData: parsedPlatformSpecificData,
         });
 
         res.status(201).json(post);

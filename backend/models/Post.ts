@@ -35,6 +35,18 @@ const postSchema = new mongoose.Schema({
     status: { type: String, enum: ["draft", "scheduled", "published", "failed"], default: "scheduled" },
     failedReason: {
         type: String
+    },
+    firstComment: {
+        type: String,
+        trim: true
+    },
+    disableLinkPreview: {
+        type: Boolean,
+        default: false
+    },
+    platformSpecificData: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
     }
 }, { timestamps: true });
 

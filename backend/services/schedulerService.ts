@@ -24,6 +24,7 @@ export const evaluateScheduledPosts = async () => {
         let failedCount = 0;
 
         for (const post of postsToPublish) {
+            let targetedAccounts: any[] = [];
             try {
                 const accounts = await Account.find({
                     user: post.user,
@@ -31,16 +32,38 @@ export const evaluateScheduledPosts = async () => {
                     status: "connected",
                     zernioAccountId: { $exists: true }
                 });
+                targetedAccounts = accounts;
 
                 if (accounts.length === 0) {
                     console.log(`No connected zernio accounts found for post ${post._id}`);
                     continue;
                 }
 
-                const zernioPlatforms = accounts.map((acc) => ({
-                    platform: acc.platform as any,
-                    accountId: acc.zernioAccountId!
-                }));
+                const zernioPlatforms = accounts.map((acc) => {
+                    const platformEntry: any = {
+                        platform: acc.platform as any,
+                        accountId: acc.zernioAccountId!
+                    };
+
+                    // Attach LinkedIn platform-specific options (firstComment, disableLinkPreview, etc.)
+                    if (acc.platform === "linkedin") {
+                        const psData: any = {};
+                        if ((post as any).firstComment) {
+                            psData.firstComment = (post as any).firstComment;
+                        }
+                        if ((post as any).disableLinkPreview) {
+                            psData.disableLinkPreview = true;
+                        }
+                        if ((post as any).platformSpecificData && typeof (post as any).platformSpecificData === "object") {
+                            Object.assign(psData, (post as any).platformSpecificData);
+                        }
+                        if (Object.keys(psData).length > 0) {
+                            platformEntry.platformSpecificData = psData;
+                        }
+                    }
+
+                    return platformEntry;
+                });
 
                 // Build mediaItems payload from mediaItems array, mediaUrls array, or legacy single mediaUrl
                 let mediaItemsPayload: { type: "image" | "video"; url: string }[] = [];
@@ -109,7 +132,39 @@ export const evaluateScheduledPosts = async () => {
                 });
             } catch (err: any) {
                 const rawError = err?.response?.data?.message || err?.response?.data?.error || (typeof err?.response?.data === "string" ? err.response.data : "") || err?.message || "Failed to publish post";
-                const errorMsg = typeof rawError === "string" ? rawError : JSON.stringify(rawError);
+                const statusCode = err?.response?.status;
+                let errorMsg = typeof rawError === "string" ? rawError : JSON.stringify(rawError);
+
+                // 1. Detect LinkedIn 422 Duplicate Content error
+                const isDuplicateError = statusCode === 422 || /duplicate/i.test(errorMsg) || /urn:li:share/i.test(errorMsg);
+                if (isDuplicateError) {
+                    errorMsg = "LinkedIn duplicate content error (422): LinkedIn rejected this post because identical or very similar content was recently posted. Please modify the text meaningfully before rescheduling.";
+                }
+
+                // 2. Detect Token Expiration / Revocation error (401 or token expired)
+                const isTokenExpired = statusCode === 401 || /expired|revoked|invalid_token|unauthorized/i.test(errorMsg);
+                if (isTokenExpired) {
+                    errorMsg = "Social account token expired or revoked. Please visit Channels & Accounts to reconnect your account.";
+                    // Proactively mark accounts as disconnected so the UI immediately warns the user
+                    try {
+                        if (targetedAccounts.length > 0) {
+                            const disconnectedAccountIds = targetedAccounts.map((a: any) => a._id);
+                            await Account.updateMany(
+                                { _id: { $in: disconnectedAccountIds } },
+                                { status: "disconnected" }
+                            );
+                            console.warn(`⚠️ [SCHEDULER] Marked accounts ${disconnectedAccountIds.join(", ")} as disconnected due to expired token.`);
+                        } else {
+                            await Account.updateMany(
+                                { user: post.user, platform: { $in: post.platforms } },
+                                { status: "disconnected" }
+                            );
+                        }
+                    } catch (accErr) {
+                        console.error("Failed to update account status to disconnected:", accErr);
+                    }
+                }
+
                 console.error(`Failed to publish post ${post._id} :`, errorMsg);
                 post.status = "failed";
                 (post as any).failedReason = errorMsg;

@@ -6,6 +6,7 @@ import TwitterPostPreview from "../components/Media/Twitter";
 import LinkedInPostPreview from "../components/Media/Linkedin";
 import FacebookPostPreview from "../components/Media/Facebook";
 import InstagramPostPreview from "../components/Media/Instagram";
+import MediaManagerModal from "../components/Media/MediaManagerModal";
 import {
     ArrowRightIcon,
     CalendarDaysIcon,
@@ -28,7 +29,10 @@ import {
     CheckCircle2Icon,
     AlertCircleIcon,
     TimerIcon,
-    SearchIcon
+    SearchIcon,
+    InfoIcon,
+    ZapIcon,
+    LayersIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, API_PATHS } from "../api/axios";
@@ -163,7 +167,34 @@ const Scheduler = () => {
 
     const [loading, setLoading] = useState(false);
 
+    // LinkedIn-specific growth features
+    const [firstComment, setFirstComment] = useState("");
+    const [isFirstCommentRequired, setIsFirstCommentRequired] = useState(false);
+    const [disableLinkPreview, setDisableLinkPreview] = useState(false);
+    const [connectedAccounts, setConnectedAccounts] = useState<any[]>([]);
+
+    // Media Manager Modal state
+    const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
+
+    const handleClearAllMedia = () => {
+        setMediaFiles([]);
+        setExistingMediaUrls([]);
+    };
+
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Fetch accounts to proactively check for disconnected/expired tokens
+    useEffect(() => {
+        const fetchAccounts = async () => {
+            try {
+                const { data } = await api.get(API_PATHS.ACCOUNTS.GET_ALL);
+                setConnectedAccounts(data);
+            } catch (e) {
+                console.warn("Could not fetch accounts for status checks", e);
+            }
+        };
+        fetchAccounts();
+    }, []);
 
     // Manage blob object URLs lifecycle cleanly
     useEffect(() => {
@@ -297,10 +328,23 @@ const Scheduler = () => {
 
     const previewMediaUrl = allPreviewMediaUrls.length > 0 ? allPreviewMediaUrls[0] : null;
 
+    const isTwitterSelected = selectedPlatforms.includes("twitter");
+    const isLinkedInSelected = selectedPlatforms.includes("linkedin");
+    const maxAllowedImages = isTwitterSelected ? 4 : 20;
+
     const togglePlatform = (id: string) => {
-        setSelectedPlatforms((prev) =>
-            prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]
-        );
+        setSelectedPlatforms((prev) => {
+            const isTurningOn = !prev.includes(id);
+            const updated = isTurningOn ? [...prev, id] : prev.filter((p) => p !== id);
+
+            if (isTurningOn && id === "twitter") {
+                const currentImagesCount = (mediaFiles.length + existingMediaUrls.length);
+                if (!hasVideo && currentImagesCount > 4) {
+                    toast.warning(`Twitter/X allows a maximum of 4 images. You currently have ${currentImagesCount} images attached. Please remove excess images before scheduling to Twitter.`);
+                }
+            }
+            return updated;
+        });
     };
 
     const handleAddFiles = (newFiles: FileList | File[]) => {
@@ -324,7 +368,7 @@ const Scheduler = () => {
 
         if (hasVideo) {
             // Replace video with image(s)
-            const imagesOnly = validFiles.filter(f => f.type.startsWith("image/")).slice(0, 4);
+            const imagesOnly = validFiles.filter(f => f.type.startsWith("image/")).slice(0, maxAllowedImages);
             setMediaFiles(imagesOnly);
             setExistingMediaUrls([]);
             toast.success(`Loaded ${imagesOnly.length} image(s)`);
@@ -332,16 +376,27 @@ const Scheduler = () => {
         }
 
         const currentTotal = mediaFiles.length + existingMediaUrls.length;
-        const availableSlots = Math.max(0, 4 - currentTotal);
+        const availableSlots = Math.max(0, maxAllowedImages - currentTotal);
 
         if (availableSlots <= 0) {
-            toast.error("Maximum 4 images allowed per post.");
+            toast.error(isTwitterSelected ? "Maximum 4 images allowed per post on Twitter/X." : `Maximum ${maxAllowedImages} images allowed per post.`);
             return;
         }
 
         const imagesToAdd = validFiles.filter(f => f.type.startsWith("image/")).slice(0, availableSlots);
         setMediaFiles(prev => [...prev, ...imagesToAdd]);
         toast.success(`Added ${imagesToAdd.length} image(s)`);
+    };
+
+    const handleMoveLinkToFirstComment = () => {
+        const urlRegex = /(https?:\/\/[^\s]+)/gi;
+        const urls = content.match(urlRegex);
+        if (!urls || urls.length === 0) return;
+        const extractedUrl = urls[0];
+        const newContent = content.replace(extractedUrl, "").replace(/\n\s*\n\s*\n/g, "\n\n").trim();
+        setContent(newContent);
+        setFirstComment(prev => prev ? `${prev}\n${extractedUrl}` : `🔗 ${extractedUrl}`);
+        toast.success("Link moved to First Comment to avoid LinkedIn reach penalty!");
     };
 
     const handleRemoveFile = (index: number) => {
@@ -384,11 +439,38 @@ const Scheduler = () => {
             return;
         }
 
+        // Check if any selected platform's account is in "disconnected" status
+        const disconnectedSelected = selectedPlatforms.find((p) => {
+            const acc = connectedAccounts.find((a) => a.platform === p);
+            return acc && acc.status === "disconnected";
+        });
+        if (disconnectedSelected) {
+            const pMeta = PLATFORMS.find(p => p.id === disconnectedSelected);
+            toast.error(`Your ${pMeta?.name || disconnectedSelected} account has an expired session. Please visit Channels & Accounts to reconnect it before scheduling.`);
+            return;
+        }
+
         // Twitter character & URL length validation
-        const isTwitterSelected = selectedPlatforms.includes("twitter");
         const twitterLength = calculateTwitterLength(content);
         if (isTwitterSelected && twitterLength > 280) {
             toast.error(`Post exceeds Twitter's 280 character limit (Current: ${twitterLength}/280). Please shorten your content.`);
+            return;
+        }
+
+        // LinkedIn character limit validation (3,000 characters for both free and premium)
+        if (isLinkedInSelected && content.length > 3000) {
+            toast.error(`Post exceeds LinkedIn's 3,000 character limit (Current: ${content.length}/3,000). Please shorten your content.`);
+            return;
+        }
+
+        if (isFirstCommentRequired && !firstComment.trim()) {
+            toast.error("First Comment is marked as required for this LinkedIn post. Please enter first comment content.");
+            return;
+        }
+
+        const totalImagesCount = mediaFiles.length + existingMediaUrls.length;
+        if (isTwitterSelected && !hasVideo && totalImagesCount > 4) {
+            toast.error(`Twitter/X only supports up to 4 images (You have ${totalImagesCount}). Please remove excess images before scheduling.`);
             return;
         }
 
@@ -404,6 +486,13 @@ const Scheduler = () => {
         formData.append("scheduledFor", scheduledFor);
         formData.append("status", "scheduled");
         formData.append("platforms", JSON.stringify(selectedPlatforms));
+
+        if (firstComment.trim()) {
+            formData.append("firstComment", firstComment.trim());
+        }
+        if (disableLinkPreview) {
+            formData.append("disableLinkPreview", "true");
+        }
 
         // Append all uploaded files
         mediaFiles.forEach((file) => {
@@ -427,6 +516,9 @@ const Scheduler = () => {
             setSelectedPlatforms([]);
             setMediaFiles([]);
             setExistingMediaUrls([]);
+            setFirstComment("");
+            setDisableLinkPreview(false);
+            setIsFirstCommentRequired(false);
             fetchPosts();
         } catch (error: any) {
             toast.error(error?.response?.data?.message || error?.message || "Failed to schedule post");
@@ -513,7 +605,27 @@ const Scheduler = () => {
                                             <label className="block text-xs font-semibold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
                                                 Content
                                             </label>
-                                            <div className="flex items-center gap-2">
+                                            <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                                                {/* LinkedIn Hook & Fold Indicator */}
+                                                {selectedPlatforms.includes("linkedin") && (
+                                                    content.length <= 210 ? (
+                                                        <span
+                                                            className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/60"
+                                                            title="LinkedIn Feed Hook: The first ~210 characters appear before the '...see more' fold. Make your hook engaging!"
+                                                        >
+                                                            👁️ Hook: {content.length}/210 visible
+                                                        </span>
+                                                    ) : (
+                                                        <span
+                                                            className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-sky-50 dark:bg-sky-950/50 text-sky-600 dark:text-sky-400 border border-sky-200 dark:border-sky-800/60"
+                                                            title="210 characters appear before the fold. The rest will be hidden behind '...see more'."
+                                                        >
+                                                            📜 210 visible (+{content.length - 210} behind 'see more')
+                                                        </span>
+                                                    )
+                                                )}
+
+                                                {/* Character Count Badges */}
                                                 {selectedPlatforms.includes("twitter") ? (
                                                     <div className="flex items-center gap-1.5">
                                                         {/https?:\/\/[^\s]+/i.test(content) && (
@@ -529,23 +641,58 @@ const Scheduler = () => {
                                                                     ? "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800"
                                                                     : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700"
                                                             }`}
-                                                            title="Twitter/X weighted character count (URLs = 23 chars, Emojis = 2 chars)"
+                                                            title={selectedPlatforms.includes("linkedin") ? "Twitter limit (280) applies because Twitter is selected alongside LinkedIn" : "Twitter/X weighted character count"}
                                                         >
                                                             𝕏 {calculateTwitterLength(content)}/280
                                                         </span>
                                                     </div>
+                                                ) : selectedPlatforms.includes("linkedin") ? (
+                                                    <span
+                                                        className={`text-xs font-bold px-2 py-0.5 rounded-md border transition-colors ${
+                                                            content.length > 3000
+                                                                ? "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-800 animate-pulse"
+                                                                : content.length > 2800
+                                                                ? "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800"
+                                                                : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700"
+                                                        }`}
+                                                        title="LinkedIn supports up to 3,000 characters for both free and premium accounts"
+                                                    >
+                                                        in {content.length}/3,000
+                                                    </span>
                                                 ) : (
-                                                    <span className={`text-xs font-medium ${content.length > 270 ? "text-red-500 dark:text-red-400" : "text-slate-400 dark:text-zinc-500"}`}>
-                                                        {content.length}/280
+                                                    <span className={`text-xs font-medium ${content.length > 2800 ? "text-red-500 dark:text-red-400" : "text-slate-400 dark:text-zinc-500"}`}>
+                                                        {content.length}/3,000
                                                     </span>
                                                 )}
                                             </div>
                                         </div>
+
+                                        {/* LinkedIn Link Reach Penalty Warning Callout with One-Click Move */}
+                                        {selectedPlatforms.includes("linkedin") && /https?:\/\/[^\s]+/i.test(content) && !firstComment && (
+                                            <div className="mb-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-900/60 flex items-center justify-between gap-2.5 text-xs text-amber-900 dark:text-amber-200 shadow-2xs animate-in fade-in">
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <ZapIcon className="size-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                                                    <span className="truncate leading-tight">
+                                                        <strong>Reach Tip:</strong> LinkedIn suppresses link posts by 40-50%. Move link to First Comment.
+                                                    </span>
+                                                </div>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleMoveLinkToFirstComment}
+                                                    className="shrink-0 px-2.5 py-1 rounded-lg bg-amber-200 dark:bg-amber-800/80 hover:bg-amber-300 dark:hover:bg-amber-700 text-amber-900 dark:text-amber-100 font-semibold text-[11px] transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                                                >
+                                                    <span>Move to 1st Comment</span>
+                                                    <ArrowRightIcon className="size-3" />
+                                                </button>
+                                            </div>
+                                        )}
+
                                         <textarea
                                             required
                                             placeholder="What do you want to share today?"
                                             className={`w-full h-56 md:h-64 px-4 py-3 bg-slate-50 dark:bg-zinc-900/60 border rounded-xl text-slate-900 dark:text-white text-sm placeholder-slate-400 dark:placeholder-zinc-500 outline-none resize-none transition-colors overflow-y-auto leading-relaxed ${
-                                                selectedPlatforms.includes("twitter") && calculateTwitterLength(content) > 280
+                                                (selectedPlatforms.includes("twitter") && calculateTwitterLength(content) > 280) ||
+                                                (selectedPlatforms.includes("linkedin") && content.length > 3000)
                                                     ? "border-rose-400 dark:border-rose-600 focus:border-rose-500"
                                                     : "border-slate-200 dark:border-zinc-800 focus:border-red-400 dark:focus:border-red-500/50"
                                             }`}
@@ -556,6 +703,12 @@ const Scheduler = () => {
                                             <p className="text-xs font-medium text-rose-500 dark:text-rose-400 mt-1.5 flex items-center gap-1.5">
                                                 <AlertCircleIcon className="size-3.5 shrink-0" />
                                                 Content exceeds Twitter/X 280 character limit by {calculateTwitterLength(content) - 280} char(s).
+                                            </p>
+                                        )}
+                                        {!selectedPlatforms.includes("twitter") && selectedPlatforms.includes("linkedin") && content.length > 3000 && (
+                                            <p className="text-xs font-medium text-rose-500 dark:text-rose-400 mt-1.5 flex items-center gap-1.5">
+                                                <AlertCircleIcon className="size-3.5 shrink-0" />
+                                                Content exceeds LinkedIn 3,000 character limit by {content.length - 3000} char(s).
                                             </p>
                                         )}
                                     </div>
@@ -571,7 +724,7 @@ const Scheduler = () => {
                                                     </label>
                                                     {allPreviewMediaUrls.length > 0 && (
                                                         <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">
-                                                            {hasVideo ? "(1 video)" : `(${allPreviewMediaUrls.length}/4 images)`}
+                                                            {hasVideo ? "(1 video)" : `(${allPreviewMediaUrls.length}/${maxAllowedImages} images)`}
                                                         </span>
                                                     )}
                                                 </div>
@@ -586,80 +739,178 @@ const Scheduler = () => {
                                             {/* Display Pre-attached URLs and Newly Selected Files */}
                                             {allPreviewMediaUrls.length > 0 ? (
                                                 <div className="space-y-2 flex-1 flex flex-col justify-between">
-                                                    {/* Media Gallery / Grid */}
-                                                    <div className={`gap-2 h-44 overflow-y-auto p-0.5 ${allPreviewMediaUrls.length === 1 && hasVideo ? "flex items-center justify-center" : "grid grid-cols-2"}`}>
-                                                        {/* Uploaded media files */}
-                                                        {mediaFiles.map((file, i) => {
-                                                            const isVid = file.type.startsWith("video/");
-                                                            const blobUrl = mediaFileUrls[i];
-                                                            return (
-                                                                <div key={`file-${i}`} className={`relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-900 shadow-xs ${isVid ? "w-full h-full aspect-video" : "aspect-video"}`}>
-                                                                    {isVid ? (
-                                                                        <video src={blobUrl} controls playsInline className="w-full h-full object-contain bg-black" />
-                                                                    ) : (
-                                                                        <img src={blobUrl} alt={file.name} className="w-full h-full object-cover" />
-                                                                    )}
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleRemoveFile(i)}
-                                                                        className="absolute top-1.5 right-1.5 p-1 bg-black/70 hover:bg-red-600 text-white rounded-full transition-colors cursor-pointer shadow-xs z-10"
-                                                                        title="Remove file"
-                                                                    >
-                                                                        <XIcon className="size-3" />
-                                                                    </button>
-                                                                    <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-md bg-black/60 text-[9px] font-mono text-white max-w-28 truncate">
-                                                                        {file.name}
-                                                                    </span>
-                                                                </div>
-                                                            );
-                                                        })}
-
-                                                        {/* Pre-existing media URLs */}
-                                                        {existingMediaUrls.map((url, i) => {
-                                                            const isUrlVid = /\.(mp4|webm|mov|mkv|ogg)$/i.test(url) || url.includes("/video/upload/");
-                                                            return (
-                                                                <div key={`url-${i}`} className={`relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-900 shadow-xs ${isUrlVid ? "w-full h-full aspect-video" : "aspect-video"}`}>
-                                                                    {isUrlVid ? (
-                                                                        <video src={url} controls playsInline className="w-full h-full object-contain bg-black" />
-                                                                    ) : (
-                                                                        <img src={url} alt="" className="w-full h-full object-cover" />
-                                                                    )}
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => handleRemoveExistingMedia(i)}
-                                                                        className="absolute top-1.5 right-1.5 p-1 bg-black/70 hover:bg-red-600 text-white rounded-full transition-colors cursor-pointer shadow-xs z-10"
-                                                                        title="Remove media"
-                                                                    >
-                                                                        <XIcon className="size-3" />
-                                                                    </button>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-
-                                                    {/* File info and button to add more images */}
-                                                    <div className="flex items-center justify-between gap-2 px-0.5 pt-0.5">
-                                                        <span className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">
-                                                            {hasVideo ? "1 video attached (max 1)" : `${allPreviewMediaUrls.length}/4 image(s) attached`}
-                                                        </span>
-                                                        <input
-                                                            type="file"
-                                                            ref={fileInputRef}
-                                                            multiple
-                                                            accept="image/*,video/*"
-                                                            className="hidden"
-                                                            onChange={(e) => e.target.files && handleAddFiles(e.target.files)}
-                                                        />
-                                                        {!hasVideo && allPreviewMediaUrls.length < 4 && (
+                                                    {/* Minimal Organized Media Display (Max 4 slots in composer) */}
+                                                    {hasVideo ? (
+                                                        <div className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-900 shadow-xs h-44 w-full flex items-center justify-center">
+                                                            <video
+                                                                src={allPreviewMediaUrls[0]}
+                                                                controls
+                                                                playsInline
+                                                                className="w-full h-full object-contain bg-black"
+                                                            />
                                                             <button
                                                                 type="button"
-                                                                onClick={() => fileInputRef.current?.click()}
-                                                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-colors cursor-pointer shrink-0 shadow-2xs"
+                                                                onClick={() => {
+                                                                    if (mediaFiles.length > 0) handleRemoveFile(0);
+                                                                    else handleRemoveExistingMedia(0);
+                                                                }}
+                                                                className="absolute top-1.5 right-1.5 p-1 bg-black/70 hover:bg-rose-600 text-white rounded-full transition-colors cursor-pointer shadow-xs z-10"
+                                                                title="Remove video"
                                                             >
-                                                                <PlusIcon className="size-3" />
-                                                                <span>Add Image</span>
+                                                                <XIcon className="size-3" />
                                                             </button>
-                                                        )}
+                                                        </div>
+                                                    ) : allPreviewMediaUrls.length <= 4 ? (
+                                                        <div className={`gap-2 h-44 p-0.5 ${
+                                                            allPreviewMediaUrls.length === 1
+                                                                ? "flex items-center justify-center"
+                                                                : allPreviewMediaUrls.length === 2
+                                                                ? "grid grid-cols-2"
+                                                                : allPreviewMediaUrls.length === 3
+                                                                ? "grid grid-cols-3"
+                                                                : "grid grid-cols-2"
+                                                        }`}>
+                                                            {allPreviewMediaUrls.map((url, i) => {
+                                                                const isUploadedFile = i < mediaFiles.length;
+                                                                const fileName = isUploadedFile ? mediaFiles[i].name : `Image ${i + 1}`;
+
+                                                                return (
+                                                                    <div
+                                                                        key={`media-slot-${i}`}
+                                                                        className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-900 shadow-xs aspect-video w-full h-full"
+                                                                    >
+                                                                        <img src={url} alt="" className="w-full h-full object-cover" />
+                                                                        
+                                                                        {/* Number Tag */}
+                                                                        <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-xs text-[9px] font-mono text-white">
+                                                                            #{i + 1}
+                                                                        </span>
+
+                                                                        {/* Remove Button */}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                if (isUploadedFile) handleRemoveFile(i);
+                                                                                else handleRemoveExistingMedia(i - mediaFiles.length);
+                                                                            }}
+                                                                            className="absolute top-1 right-1 p-1 bg-black/70 hover:bg-rose-600 text-white rounded-full transition-colors cursor-pointer shadow-xs z-10"
+                                                                            title="Remove image"
+                                                                        >
+                                                                            <XIcon className="size-2.5" />
+                                                                        </button>
+
+                                                                        {/* Bottom filename tag */}
+                                                                        <span className="absolute bottom-1 left-1 right-1 px-1 py-0.5 rounded bg-black/60 text-[9px] font-mono text-white truncate pointer-events-none">
+                                                                            {fileName}
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    ) : (
+                                                        /* 5 or more images: Show 3 preview slots + 1 interactive "+{more}" slot */
+                                                        <div className="grid grid-cols-2 gap-2 h-44 p-0.5">
+                                                            {allPreviewMediaUrls.slice(0, 3).map((url, i) => {
+                                                                const isUploadedFile = i < mediaFiles.length;
+                                                                const fileName = isUploadedFile ? mediaFiles[i].name : `Image ${i + 1}`;
+
+                                                                return (
+                                                                    <div
+                                                                        key={`media-top3-${i}`}
+                                                                        className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-900 shadow-xs aspect-video w-full h-full"
+                                                                    >
+                                                                        <img src={url} alt="" className="w-full h-full object-cover" />
+                                                                        
+                                                                        {/* Number Tag */}
+                                                                        <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-xs text-[9px] font-mono text-white">
+                                                                            #{i + 1}
+                                                                        </span>
+
+                                                                        {/* Remove Button */}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                if (isUploadedFile) handleRemoveFile(i);
+                                                                                else handleRemoveExistingMedia(i - mediaFiles.length);
+                                                                            }}
+                                                                            className="absolute top-1 right-1 p-1 bg-black/70 hover:bg-rose-600 text-white rounded-full transition-colors cursor-pointer shadow-xs z-10"
+                                                                            title="Remove image"
+                                                                        >
+                                                                            <XIcon className="size-2.5" />
+                                                                        </button>
+
+                                                                        {/* Bottom filename tag */}
+                                                                        <span className="absolute bottom-1 left-1 right-1 px-1 py-0.5 rounded bg-black/60 text-[9px] font-mono text-white truncate pointer-events-none">
+                                                                            {fileName}
+                                                                        </span>
+                                                                    </div>
+                                                                );
+                                                            })}
+
+                                                            {/* 4th Slot: Interactive "+{remaining}" Card */}
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setIsMediaModalOpen(true)}
+                                                                className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-900 shadow-xs aspect-video w-full h-full cursor-pointer select-none text-left p-0 transition-all hover:ring-2 hover:ring-sky-500/50"
+                                                                title={`Click to view all ${allPreviewMediaUrls.length} images & organize gallery`}
+                                                            >
+                                                                {/* Background blur of 4th image */}
+                                                                <img
+                                                                    src={allPreviewMediaUrls[3]}
+                                                                    alt=""
+                                                                    className="w-full h-full object-cover opacity-35 blur-[0.5px] group-hover:scale-105 transition-transform"
+                                                                />
+                                                                <div className="absolute inset-0 bg-slate-950/70 group-hover:bg-slate-950/80 flex flex-col items-center justify-center text-white transition-colors p-1">
+                                                                    <span className="text-xl sm:text-2xl font-black text-white tracking-wide group-hover:scale-110 transition-transform">
+                                                                        +{allPreviewMediaUrls.length - 3}
+                                                                    </span>
+                                                                    <span className="text-[10px] font-semibold text-sky-300 mt-0.5 flex items-center gap-1 opacity-90 group-hover:opacity-100">
+                                                                        <LayersIcon className="size-3" />
+                                                                        Manage All
+                                                                    </span>
+                                                                </div>
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                    {/* File info bar and action buttons */}
+                                                    <div className="flex items-center justify-between gap-1.5 px-0.5 pt-1">
+                                                        <span className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium truncate">
+                                                            {hasVideo
+                                                                ? "1 video attached (max 1)"
+                                                                : `${allPreviewMediaUrls.length} of ${maxAllowedImages} image(s)`}
+                                                        </span>
+
+                                                        <div className="flex items-center gap-1.5 shrink-0">
+                                                            {!hasVideo && allPreviewMediaUrls.length > 0 && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => setIsMediaModalOpen(true)}
+                                                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-xs font-semibold text-slate-700 dark:text-zinc-300 transition-colors cursor-pointer shadow-2xs"
+                                                                >
+                                                                    <LayersIcon className="size-3" />
+                                                                    <span>Manage ({allPreviewMediaUrls.length})</span>
+                                                                </button>
+                                                            )}
+                                                            <input
+                                                                type="file"
+                                                                ref={fileInputRef}
+                                                                multiple
+                                                                accept="image/*,video/*"
+                                                                className="hidden"
+                                                                onChange={(e) => e.target.files && handleAddFiles(e.target.files)}
+                                                            />
+                                                            {!hasVideo && allPreviewMediaUrls.length < maxAllowedImages && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => fileInputRef.current?.click()}
+                                                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-sky-200 dark:border-sky-900/60 bg-sky-50 dark:bg-sky-950/40 hover:bg-sky-100 dark:hover:bg-sky-900/50 text-xs font-semibold text-sky-600 dark:text-sky-400 transition-colors cursor-pointer shrink-0 shadow-2xs"
+                                                                >
+                                                                    <PlusIcon className="size-3" />
+                                                                    <span>Add</span>
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ) : (
@@ -680,10 +931,10 @@ const Scheduler = () => {
                                                         </div>
                                                         <div className="text-center">
                                                             <span className="text-xs font-semibold text-slate-700 dark:text-zinc-200 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors block">
-                                                                Click or drag & drop (up to 4 images or 1 video)
+                                                                Click or drag & drop (up to {maxAllowedImages} images or 1 video)
                                                             </span>
                                                             <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 block">
-                                                                Twitter supports up to 4 images or 1 video (MP4, PNG, JPG)
+                                                                {isTwitterSelected ? "Twitter/X supports up to 4 images (or 1 video)" : "LinkedIn supports up to 20 images (JPEG, PNG, GIF) or 1 video"}
                                                             </span>
                                                         </div>
                                                         <input
@@ -718,6 +969,82 @@ const Scheduler = () => {
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* LinkedIn Growth Settings Card */}
+                                {selectedPlatforms.includes("linkedin") && (
+                                    <div className="p-4 rounded-2xl bg-slate-50/90 dark:bg-zinc-900/60 border border-sky-200/80 dark:border-sky-950/80 space-y-3.5 shadow-2xs animate-in fade-in">
+                                        <div className="flex items-center justify-between gap-2 border-b border-slate-200/70 dark:border-zinc-800/70 pb-2.5">
+                                            <div className="flex items-center gap-2">
+                                                <span className="px-1.5 py-0.5 rounded-md bg-[#0a66c2] text-white text-[10px] font-bold">in</span>
+                                                <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider">
+                                                    LinkedIn Growth Features
+                                                </span>
+                                            </div>
+                                            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400">
+                                                Max 3,000 chars • Up to 20 images
+                                            </span>
+                                        </div>
+
+                                        {/* First Comment Field */}
+                                        <div>
+                                            <div className="flex items-center justify-between mb-1.5">
+                                                <div className="flex items-center gap-1.5 group relative">
+                                                    <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1">
+                                                        Auto "First Comment"
+                                                    </label>
+                                                    {/* Info Circle with rich hover tooltip */}
+                                                    <div className="relative group/tip cursor-help inline-flex items-center">
+                                                        <InfoIcon className="size-3.5 text-slate-400 hover:text-sky-500 transition-colors" />
+                                                        <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 hidden group-hover/tip:flex flex-col w-72 p-3 bg-slate-900 text-white text-[11px] rounded-xl shadow-xl z-50 pointer-events-none leading-relaxed border border-slate-700">
+                                                            <span className="font-bold text-sky-300 mb-1 flex items-center gap-1">
+                                                                <ZapIcon className="size-3" />
+                                                                Algorithm Optimization
+                                                            </span>
+                                                            LinkedIn suppresses posts with external links in the caption by 40-50%. Putting links in the First Comment bypasses this suppression and maintains full organic reach.
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Optional vs Compulsory Toggle */}
+                                                <label className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-zinc-400 cursor-pointer select-none">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isFirstCommentRequired}
+                                                        onChange={(e) => setIsFirstCommentRequired(e.target.checked)}
+                                                        className="rounded border-slate-300 dark:border-zinc-700 text-sky-600 focus:ring-sky-500 size-3"
+                                                    />
+                                                    <span>Make required for this post</span>
+                                                </label>
+                                            </div>
+
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    value={firstComment}
+                                                    onChange={(e) => setFirstComment(e.target.value)}
+                                                    placeholder="e.g. 🔗 Read the full guide here: https://example.com/guide"
+                                                    className="w-full px-3.5 py-2.5 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white text-xs placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-sky-400 dark:focus:border-sky-500/50 transition-colors shadow-2xs"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Disable Link Preview Checkbox */}
+                                        <div className="flex items-center justify-between pt-1">
+                                            <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-300 cursor-pointer select-none">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={disableLinkPreview}
+                                                    onChange={(e) => setDisableLinkPreview(e.target.checked)}
+                                                    className="rounded border-slate-300 dark:border-zinc-700 text-sky-600 focus:ring-sky-500 size-3.5"
+                                                />
+                                                <span className="font-medium">Disable automatic URL preview card</span>
+                                            </label>
+                                            <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                                                Suppresses large link thumbnail card
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Submit Button */}
                                 <button
@@ -814,7 +1141,16 @@ const Scheduler = () => {
                                     <TwitterPostPreview content={content} mediaUrl={previewMediaUrl} mediaUrls={allPreviewMediaUrls} mediaType={activeMediaType} user={user} />
                                 )}
                                 {currentPlatformId === "linkedin" && (
-                                    <LinkedInPostPreview content={content} mediaUrl={previewMediaUrl} mediaType={activeMediaType} user={user} />
+                                    <LinkedInPostPreview
+                                        content={content}
+                                        mediaUrl={previewMediaUrl}
+                                        mediaUrls={allPreviewMediaUrls}
+                                        mediaType={activeMediaType}
+                                        user={user}
+                                        firstComment={firstComment}
+                                        disableLinkPreview={disableLinkPreview}
+                                        onOpenMediaModal={() => setIsMediaModalOpen(true)}
+                                    />
                                 )}
                                 {currentPlatformId === "facebook" && (
                                     <FacebookPostPreview content={content} mediaUrl={previewMediaUrl} mediaType={activeMediaType} user={user} />
@@ -1453,6 +1789,21 @@ const Scheduler = () => {
                     </div>
                 </div>
             )}
+
+            {/* Media Manager Gallery Modal Popup with Blur Background & Close Cross */}
+            <MediaManagerModal
+                isOpen={isMediaModalOpen}
+                onClose={() => setIsMediaModalOpen(false)}
+                mediaFiles={mediaFiles}
+                mediaFileUrls={mediaFileUrls}
+                existingMediaUrls={existingMediaUrls}
+                onRemoveFile={handleRemoveFile}
+                onRemoveExistingUrl={handleRemoveExistingMedia}
+                onAddFiles={handleAddFiles}
+                maxAllowed={maxAllowedImages}
+                platformName={selectedPlatforms.includes("linkedin") ? "LinkedIn" : (isTwitterSelected ? "Twitter/X" : "Social")}
+                onClearAll={handleClearAllMedia}
+            />
         </div>
     );
 };
