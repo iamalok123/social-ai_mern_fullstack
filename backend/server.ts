@@ -9,6 +9,8 @@ import accountRouter from "./routes/accountRoutes.js";
 import postRouter from "./routes/postRoutes.js";
 import activityRouter from "./routes/activityRoutes.js";
 import ideaRouter from "./routes/ideaRoutes.js";
+import platformRouter from "./routes/platformRoutes.js";
+import "./services/social/index.js";
 import { initScheduler } from "./services/schedulerService.js";
 
 const app = express();
@@ -57,6 +59,7 @@ app.use("/api/auth", authLimiter, authRouter);
 app.use("/api/oauth", socialAuthRouter);
 app.use("/api/accounts", accountRouter);
 app.use("/api/posts", postRouter);
+app.use("/api/platforms", platformRouter);
 app.use("/api/ideas", ideaRouter);
 app.use("/api/activity", activityRouter);
 

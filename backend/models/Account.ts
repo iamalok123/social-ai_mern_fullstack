@@ -8,7 +8,10 @@ const accountSchema = new mongoose.Schema({
     },
     platform: {
         type: String,
-        enum: ["twitter", "linkedin", "facebook", "instagram", "facebook_page", "linkedin_page", "instagram_business"],
+        enum: [
+            "twitter", "linkedin", "facebook", "instagram",
+            "facebook_page", "linkedin_page", "instagram_business"
+        ],
         required: true
     },
     handle: {
