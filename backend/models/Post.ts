@@ -117,6 +117,10 @@ const facebookDetailsSchema = new mongoose.Schema(
         ],
         carouselLink: { type: String },
         draft: { type: Boolean, default: false },
+        textFormatPresetId: { type: String },
+        geoRestriction: {
+            countries: [{ type: String }]
+        },
         status: {
             type: String,
             enum: ["pending", "published", "failed"],

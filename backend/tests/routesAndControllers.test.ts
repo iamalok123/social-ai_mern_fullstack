@@ -3,6 +3,8 @@ import assert from "node:assert";
 import "../services/social/index.js";
 import { postValidationMiddleware } from "../middlewares/postValidationMiddleware.js";
 import { getAllPlatforms, getPlatformById } from "../controllers/platformController.js";
+import { getPosts, deletePost } from "../controllers/postController.js";
+import { Post } from "../models/Post.js";
 import { SocialPlatformRegistry } from "../services/social/core/SocialPlatformRegistry.js";
 
 describe("Routes, Controllers & Middlewares Test Suite", () => {
@@ -279,6 +281,141 @@ describe("Routes, Controllers & Middlewares Test Suite", () => {
             assert.strictEqual(details.title, "Spring Collection");
             assert.strictEqual(details.draft, true);
             assert.strictEqual(details.carouselCards?.length, 2);
+        });
+    });
+
+    describe("postController Security & Authorization", () => {
+        it("getPosts: only queries posts belonging to authenticated user", async () => {
+            const originalFind = Post.find;
+            let queriedUserId: any = null;
+
+            (Post as any).find = (query: any) => {
+                queriedUserId = query.user;
+                return {
+                    sort: () => Promise.resolve([{ _id: "p1", user: "auth_user_123" }])
+                };
+            };
+
+            try {
+                let responseData: any = null;
+                const req: any = { user: { _id: "auth_user_123" } };
+                const res: any = {
+                    json: (data: any) => { responseData = data; }
+                };
+
+                await getPosts(req, res);
+
+                assert.strictEqual(queriedUserId, "auth_user_123");
+                assert.strictEqual(responseData.length, 1);
+            } finally {
+                (Post as any).find = originalFind;
+            }
+        });
+
+        it("deletePost: returns 404 when user tries to delete a post belonging to another user", async () => {
+            const originalFindOne = Post.findOne;
+
+            (Post as any).findOne = (query: any) => {
+                assert.strictEqual(query._id, "post_belonging_to_other");
+                assert.strictEqual(query.user, "attacker_user_id");
+                return Promise.resolve(null); // Not found because user doesn't own it
+            };
+
+            try {
+                let statusCode = 200;
+                let responseData: any = null;
+                const req: any = {
+                    params: { id: "post_belonging_to_other" },
+                    user: { _id: "attacker_user_id" }
+                };
+                const res: any = {
+                    status: (code: number) => {
+                        statusCode = code;
+                        return { json: (data: any) => { responseData = data; } };
+                    }
+                };
+
+                await deletePost(req, res);
+
+                assert.strictEqual(statusCode, 404);
+                assert.strictEqual(responseData.message, "Post not found");
+            } finally {
+                (Post as any).findOne = originalFindOne;
+            }
+        });
+
+        it("deletePost: blocks deletion of already published posts (400)", async () => {
+            const originalFindOne = Post.findOne;
+
+            (Post as any).findOne = () => Promise.resolve({
+                _id: "published_post_id",
+                user: "user_owner",
+                status: "published"
+            });
+
+            try {
+                let statusCode = 200;
+                let responseData: any = null;
+                const req: any = {
+                    params: { id: "published_post_id" },
+                    user: { _id: "user_owner" }
+                };
+                const res: any = {
+                    status: (code: number) => {
+                        statusCode = code;
+                        return { json: (data: any) => { responseData = data; } };
+                    }
+                };
+
+                await deletePost(req, res);
+
+                assert.strictEqual(statusCode, 400);
+                assert.strictEqual(responseData.message, "Published posts cannot be deleted.");
+            } finally {
+                (Post as any).findOne = originalFindOne;
+            }
+        });
+
+        it("deletePost: successfully deletes scheduled post owned by user", async () => {
+            const originalFindOne = Post.findOne;
+            const originalDeleteOne = Post.deleteOne;
+            const originalPostExists = Post.exists;
+
+            (Post as any).findOne = () => Promise.resolve({
+                _id: "scheduled_post_id",
+                user: "user_owner",
+                status: "scheduled",
+                mediaUrls: []
+            });
+
+            let deleteCalled = false;
+            (Post as any).deleteOne = async (query: any) => {
+                assert.strictEqual(query._id, "scheduled_post_id");
+                deleteCalled = true;
+                return { deletedCount: 1 };
+            };
+            (Post as any).exists = () => Promise.resolve(false);
+
+            try {
+                let responseData: any = null;
+                const req: any = {
+                    params: { id: "scheduled_post_id" },
+                    user: { _id: "user_owner" }
+                };
+                const res: any = {
+                    json: (data: any) => { responseData = data; }
+                };
+
+                await deletePost(req, res);
+
+                assert.strictEqual(deleteCalled, true);
+                assert.strictEqual(responseData.message, "Scheduled post deleted successfully");
+                assert.strictEqual(responseData.id, "scheduled_post_id");
+            } finally {
+                (Post as any).findOne = originalFindOne;
+                (Post as any).deleteOne = originalDeleteOne;
+                (Post as any).exists = originalPostExists;
+            }
         });
     });
 });

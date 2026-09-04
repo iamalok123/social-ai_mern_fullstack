@@ -7,6 +7,7 @@ import LinkedInPostPreview from "../components/Media/Linkedin";
 import FacebookPostPreview from "../components/Media/Facebook";
 import InstagramPostPreview from "../components/Media/Instagram";
 import MediaManagerModal from "../components/Media/MediaManagerModal";
+import { calculateTwitterLength, getMediaUploaderHint, getActivePlatformDisplayName } from "../utils/schedulerUtils";
 import {
     ArrowRightIcon,
     CalendarDaysIcon,
@@ -32,7 +33,8 @@ import {
     SearchIcon,
     InfoIcon,
     ZapIcon,
-    LayersIcon
+    LayersIcon,
+    GlobeIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, API_PATHS } from "../api/axios";
@@ -44,30 +46,7 @@ interface PostThumbnailProps {
     onClick: () => void;
 }
 
-/**
- * Calculates Twitter/X weighted length according to Twitter API rules:
- * - Every http:// or https:// URL counts as exactly 23 characters.
- * - Basic Latin / standard ASCII characters (codePoint <= 4351) count as 1.
- * - Emojis and extended Unicode characters (codePoint > 4351) count as 2.
- */
-export const calculateTwitterLength = (text: string): number => {
-    if (!text) return 0;
-    const urlRegex = /https?:\/\/[^\s]+/gi;
-    const textWithoutUrls = text.replace(urlRegex, "");
-    const urlMatches = text.match(urlRegex) || [];
-    const urlLength = urlMatches.length * 23;
 
-    let charLength = 0;
-    for (const char of Array.from(textWithoutUrls)) {
-        const codePoint = char.codePointAt(0) || 0;
-        if (codePoint <= 4351) {
-            charLength += 1;
-        } else {
-            charLength += 2;
-        }
-    }
-    return charLength + urlLength;
-};
 
 const PostThumbnail = ({ mediaUrl, isVideo, count, onClick }: PostThumbnailProps) => {
     const [hasError, setHasError] = useState(false);
@@ -172,6 +151,13 @@ const Scheduler = () => {
     const [isFirstCommentRequired, setIsFirstCommentRequired] = useState(false);
     const [disableLinkPreview, setDisableLinkPreview] = useState(false);
     const [connectedAccounts, setConnectedAccounts] = useState<any[]>([]);
+
+    // Facebook-specific features
+    const [facebookContentType, setFacebookContentType] = useState<"feed" | "reel" | "story">("feed");
+    const [facebookTitle, setFacebookTitle] = useState("");
+    const [facebookDraft, setFacebookDraft] = useState(false);
+    const [facebookTextPreset, setFacebookTextPreset] = useState("");
+    const [facebookGeoCountries, setFacebookGeoCountries] = useState("");
 
     // Media Manager Modal state
     const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
@@ -330,7 +316,17 @@ const Scheduler = () => {
 
     const isTwitterSelected = selectedPlatforms.includes("twitter");
     const isLinkedInSelected = selectedPlatforms.includes("linkedin");
-    const maxAllowedImages = isTwitterSelected ? 4 : 20;
+    const isFacebookSelected = selectedPlatforms.includes("facebook");
+    const isInstagramSelected = selectedPlatforms.includes("instagram");
+    const maxAllowedImages = isTwitterSelected ? 4 : (isFacebookSelected || isInstagramSelected ? 10 : 20);
+
+    const mediaUploaderHint = getMediaUploaderHint(
+        selectedPlatforms,
+        isTwitterSelected,
+        isFacebookSelected,
+        isInstagramSelected,
+        isLinkedInSelected
+    );
 
     const togglePlatform = (id: string) => {
         setSelectedPlatforms((prev) => {
@@ -341,6 +337,12 @@ const Scheduler = () => {
                 const currentImagesCount = (mediaFiles.length + existingMediaUrls.length);
                 if (!hasVideo && currentImagesCount > 4) {
                     toast.warning(`Twitter/X allows a maximum of 4 images. You currently have ${currentImagesCount} images attached. Please remove excess images before scheduling to Twitter.`);
+                }
+            }
+            if (isTurningOn && id === "facebook") {
+                const currentImagesCount = (mediaFiles.length + existingMediaUrls.length);
+                if (!hasVideo && currentImagesCount > 10) {
+                    toast.warning(`Facebook allows a maximum of 10 images. You currently have ${currentImagesCount} images attached. Please remove excess images before scheduling to Facebook.`);
                 }
             }
             return updated;
@@ -474,6 +476,25 @@ const Scheduler = () => {
             return;
         }
 
+        if (isFacebookSelected) {
+            if (totalImagesCount > 0 && hasVideo) {
+                toast.error("Facebook does not allow mixing images and videos in the same post.");
+                return;
+            }
+            if (totalImagesCount > 10) {
+                toast.error(`Facebook allows a maximum of 10 images (You have ${totalImagesCount}). Please remove excess images.`);
+                return;
+            }
+            if (facebookContentType === "reel" && !hasVideo) {
+                toast.error("Facebook Reels require a video file.");
+                return;
+            }
+            if (facebookContentType === "story" && totalImagesCount === 0 && !hasVideo) {
+                toast.error("Facebook Stories require an image or video.");
+                return;
+            }
+        }
+
         const hasMedia = mediaFiles.length > 0 || existingMediaUrls.length > 0;
         if (selectedPlatforms.includes("instagram") && !hasMedia) {
             toast.error("Instagram requires an image or video");
@@ -492,6 +513,34 @@ const Scheduler = () => {
         }
         if (disableLinkPreview) {
             formData.append("disableLinkPreview", "true");
+        }
+
+        // Platform-specific options
+        const platformSpecificData: Record<string, any> = {};
+        if (isFacebookSelected) {
+            const fbData: Record<string, any> = {
+                contentType: facebookContentType,
+                draft: facebookDraft,
+            };
+            if (facebookContentType === "reel" && facebookTitle.trim()) {
+                fbData.title = facebookTitle.trim();
+            }
+            if (facebookTextPreset.trim() && !hasMedia) {
+                fbData.textFormatPresetId = facebookTextPreset.trim();
+            }
+            if (facebookGeoCountries.trim()) {
+                const countries = facebookGeoCountries
+                    .split(",")
+                    .map((c) => c.trim().toUpperCase())
+                    .filter((c) => /^[A-Z]{2}$/.test(c));
+                if (countries.length > 0) {
+                    fbData.geoRestriction = { countries };
+                }
+            }
+            platformSpecificData.facebook = fbData;
+        }
+        if (Object.keys(platformSpecificData).length > 0) {
+            formData.append("platformSpecificData", JSON.stringify(platformSpecificData));
         }
 
         // Append all uploaded files
@@ -519,6 +568,11 @@ const Scheduler = () => {
             setFirstComment("");
             setDisableLinkPreview(false);
             setIsFirstCommentRequired(false);
+            setFacebookContentType("feed");
+            setFacebookTitle("");
+            setFacebookDraft(false);
+            setFacebookTextPreset("");
+            setFacebookGeoCountries("");
             fetchPosts();
         } catch (error: any) {
             toast.error(error?.response?.data?.message || error?.message || "Failed to schedule post");
@@ -658,6 +712,19 @@ const Scheduler = () => {
                                                         title="LinkedIn supports up to 3,000 characters for both free and premium accounts"
                                                     >
                                                         in {content.length}/3,000
+                                                    </span>
+                                                ) : selectedPlatforms.includes("facebook") ? (
+                                                    <span
+                                                        className={`text-xs font-bold px-2 py-0.5 rounded-md border transition-colors ${
+                                                            content.length > 63206
+                                                                ? "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-800 animate-pulse"
+                                                                : content.length > 480
+                                                                ? "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+                                                                : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700"
+                                                        }`}
+                                                        title="Facebook limit: 63,206 chars (truncated at ~480 with 'See more')"
+                                                    >
+                                                        f {content.length > 480 ? `${content.length} (truncates at ~480)` : `${content.length}/63k`}
                                                     </span>
                                                 ) : (
                                                     <span className={`text-xs font-medium ${content.length > 2800 ? "text-red-500 dark:text-red-400" : "text-slate-400 dark:text-zinc-500"}`}>
@@ -934,7 +1001,7 @@ const Scheduler = () => {
                                                                 Click or drag & drop (up to {maxAllowedImages} images or 1 video)
                                                             </span>
                                                             <span className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5 block">
-                                                                {isTwitterSelected ? "Twitter/X supports up to 4 images (or 1 video)" : "LinkedIn supports up to 20 images (JPEG, PNG, GIF) or 1 video"}
+                                                                {mediaUploaderHint}
                                                             </span>
                                                         </div>
                                                         <input
@@ -1046,6 +1113,149 @@ const Scheduler = () => {
                                     </div>
                                 )}
 
+                                {/* Facebook Page Options Card */}
+                                {selectedPlatforms.includes("facebook") && (
+                                    <div className="p-4 rounded-2xl bg-slate-50/90 dark:bg-zinc-900/60 border border-blue-200/80 dark:border-blue-950/80 space-y-3.5 shadow-2xs animate-in fade-in">
+                                        <div className="flex items-center justify-between gap-2 border-b border-slate-200/70 dark:border-zinc-800/70 pb-2.5">
+                                            <div className="flex items-center gap-2">
+                                                <span className="px-2 py-0.5 rounded-md bg-[#1877F2] text-white text-[10px] font-bold">f</span>
+                                                <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider">
+                                                    Facebook Page Options
+                                                </span>
+                                            </div>
+                                            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400">
+                                                Pages Only • Up to 10 images • 1 video
+                                            </span>
+                                        </div>
+
+                                        {/* Post Format Selector */}
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                                                Publishing Format
+                                            </label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {[
+                                                    { id: "feed", label: "Feed Post", desc: "Standard feed" },
+                                                    { id: "reel", label: "Reel", desc: "Short video" },
+                                                    { id: "story", label: "Story", desc: "24h ephemeral" },
+                                                ].map((fmt) => (
+                                                    <button
+                                                        key={fmt.id}
+                                                        type="button"
+                                                        onClick={() => setFacebookContentType(fmt.id as any)}
+                                                        className={`px-3 py-2 rounded-xl text-left border transition-all cursor-pointer ${
+                                                            facebookContentType === fmt.id
+                                                                ? "bg-blue-50 dark:bg-blue-950/50 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-100 shadow-2xs"
+                                                                : "bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700"
+                                                        }`}
+                                                    >
+                                                        <div className="text-xs font-bold">{fmt.label}</div>
+                                                        <div className="text-[10px] text-slate-500 dark:text-zinc-400">{fmt.desc}</div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Reel Title Field */}
+                                        {facebookContentType === "reel" && (
+                                            <div className="animate-in fade-in">
+                                                <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                                                    Reel Title <span className="text-slate-400 font-normal">(separate from caption)</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={facebookTitle}
+                                                    onChange={(e) => setFacebookTitle(e.target.value)}
+                                                    placeholder="e.g. Behind the scenes 🎬"
+                                                    className="w-full px-3.5 py-2.5 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white text-xs placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-blue-400 dark:focus:border-blue-500/50 transition-colors shadow-2xs"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Draft Mode Toggle */}
+                                        {facebookContentType !== "story" && (
+                                            <div className="flex items-center justify-between pt-1">
+                                                <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-300 cursor-pointer select-none">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={facebookDraft}
+                                                        onChange={(e) => setFacebookDraft(e.target.checked)}
+                                                        className="rounded border-slate-300 dark:border-zinc-700 text-blue-600 focus:ring-blue-500 size-3.5"
+                                                    />
+                                                    <span className="font-medium">Save as draft in Facebook Publishing Tools</span>
+                                                </label>
+                                                <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                                                    Review on Meta before live
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Large Text Colored Background Preset */}
+                                        {facebookContentType === "feed" && mediaFiles.length === 0 && existingMediaUrls.length === 0 && (
+                                            <div className="pt-1 animate-in fade-in">
+                                                <div className="flex items-center justify-between mb-1.5">
+                                                    <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1">
+                                                        Large Text Colored Background Preset
+                                                    </label>
+                                                    {facebookTextPreset && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setFacebookTextPreset("")}
+                                                            className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+                                                        >
+                                                            Clear preset
+                                                        </button>
+                                                    )}
+                                                </div>
+                                                <div className="flex items-center gap-2 flex-wrap">
+                                                    {[
+                                                        { id: "", name: "Default", bg: "bg-slate-200 dark:bg-zinc-800" },
+                                                        { id: "ocean", name: "Ocean", bg: "bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-700" },
+                                                        { id: "sunset", name: "Sunset", bg: "bg-gradient-to-tr from-amber-500 via-rose-500 to-purple-600" },
+                                                        { id: "emerald", name: "Emerald", bg: "bg-gradient-to-tr from-emerald-500 to-teal-700" },
+                                                        { id: "midnight", name: "Midnight", bg: "bg-gradient-to-tr from-slate-900 via-zinc-900 to-slate-950" },
+                                                        { id: "fire", name: "Fire", bg: "bg-gradient-to-tr from-orange-500 to-red-600" },
+                                                    ].map((preset) => (
+                                                        <button
+                                                            key={preset.id}
+                                                            type="button"
+                                                            onClick={() => setFacebookTextPreset(preset.id)}
+                                                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
+                                                                facebookTextPreset === preset.id
+                                                                    ? "border-blue-500 dark:border-blue-400 ring-2 ring-blue-500/20 shadow-xs"
+                                                                    : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
+                                                            }`}
+                                                        >
+                                                            <span className={`size-3 rounded-full ${preset.bg} shrink-0`} />
+                                                            <span className="text-slate-700 dark:text-zinc-300 text-[11px]">{preset.name}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Country Geo-Restriction */}
+                                        {facebookContentType !== "story" && (
+                                            <div className="pt-1">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1">
+                                                        <GlobeIcon className="size-3 text-slate-400" />
+                                                        Country Geo-Restriction <span className="text-slate-400 font-normal">(optional)</span>
+                                                    </label>
+                                                    <span className="text-[10px] text-slate-400 dark:text-zinc-500">ISO-2 codes</span>
+                                                </div>
+                                                <input
+                                                    type="text"
+                                                    value={facebookGeoCountries}
+                                                    onChange={(e) => setFacebookGeoCountries(e.target.value)}
+                                                    placeholder="e.g. US, GB, CA (up to 25 codes)"
+                                                    className="w-full px-3.5 py-2 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white text-xs placeholder-slate-400 dark:placeholder-zinc-500 outline-none focus:border-blue-400 dark:focus:border-blue-500/50 transition-colors shadow-2xs"
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Submit Button */}
                                 <button
                                     type="submit"
@@ -1153,7 +1363,18 @@ const Scheduler = () => {
                                     />
                                 )}
                                 {currentPlatformId === "facebook" && (
-                                    <FacebookPostPreview content={content} mediaUrl={previewMediaUrl} mediaType={activeMediaType} user={user} />
+                                    <FacebookPostPreview
+                                        content={content}
+                                        mediaUrl={previewMediaUrl}
+                                        mediaUrls={allPreviewMediaUrls}
+                                        mediaType={activeMediaType}
+                                        user={user}
+                                        firstComment={firstComment}
+                                        contentType={facebookContentType}
+                                        title={facebookTitle}
+                                        draft={facebookDraft}
+                                        textFormatPresetId={facebookTextPreset}
+                                    />
                                 )}
                                 {currentPlatformId === "instagram" && (
                                     <InstagramPostPreview content={content} mediaUrl={previewMediaUrl} mediaType={activeMediaType} user={user} />
@@ -1801,7 +2022,12 @@ const Scheduler = () => {
                 onRemoveExistingUrl={handleRemoveExistingMedia}
                 onAddFiles={handleAddFiles}
                 maxAllowed={maxAllowedImages}
-                platformName={selectedPlatforms.includes("linkedin") ? "LinkedIn" : (isTwitterSelected ? "Twitter/X" : "Social")}
+                platformName={getActivePlatformDisplayName(
+                    isTwitterSelected,
+                    isFacebookSelected,
+                    isInstagramSelected,
+                    isLinkedInSelected
+                )}
                 onClearAll={handleClearAllMedia}
             />
         </div>

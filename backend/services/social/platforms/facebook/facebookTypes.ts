@@ -4,6 +4,17 @@ export interface FacebookCarouselCard {
     description?: string;
 }
 
+export interface FacebookSettings {
+    draft?: boolean;
+    carouselCards?: FacebookCarouselCard[];
+    carouselLink?: string;
+    textFormatPresetId?: string;
+}
+
+export interface FacebookGeoRestriction {
+    countries?: string[];
+}
+
 export interface FacebookPlatformData {
     customContent?: string;
     contentType?: "feed" | "story" | "reel";
@@ -13,4 +24,7 @@ export interface FacebookPlatformData {
     carouselCards?: FacebookCarouselCard[];
     carouselLink?: string;
     draft?: boolean;
+    textFormatPresetId?: string;
+    geoRestriction?: FacebookGeoRestriction;
+    facebookSettings?: FacebookSettings;
 }

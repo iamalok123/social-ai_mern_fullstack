@@ -53,7 +53,7 @@ describe("SocialPlatformRegistry", () => {
 
         const facebookCap = caps.find((c) => c.platformId === "facebook");
         assert.ok(facebookCap);
-        assert.strictEqual(facebookCap.maxMediaCount, 20);
+        assert.strictEqual(facebookCap.maxMediaCount, 10);
         assert.strictEqual(facebookCap.supportsReels, true);
     });
 });

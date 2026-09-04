@@ -36,6 +36,16 @@ export const postValidationMiddleware = (req: AuthRequest, res: Response, next: 
             return;
         }
 
+        // Validate that all specified platforms are supported by registered platform adapters
+        for (const platformId of parsedPlatforms) {
+            if (!SocialPlatformRegistry.has(platformId)) {
+                res.status(400).json({
+                    message: `Invalid or unsupported platform: "${platformId}". Supported platforms are: ${SocialPlatformRegistry.getAll().map((a) => a.platformId).join(", ")}`
+                });
+                return;
+            }
+        }
+
         if (!scheduledFor) {
             res.status(400).json({ message: "Scheduled date and time are required." });
             return;
@@ -44,6 +54,14 @@ export const postValidationMiddleware = (req: AuthRequest, res: Response, next: 
         const scheduledDate = new Date(scheduledFor);
         if (isNaN(scheduledDate.getTime())) {
             res.status(400).json({ message: "Invalid scheduled date format." });
+            return;
+        }
+
+        // Guard against scheduling posts in the past (15-minute grace period for immediate publish & clock drift)
+        const isDraft = req.body.status === "draft";
+        const now = Date.now();
+        if (!isDraft && scheduledDate.getTime() < now - 15 * 60 * 1000) {
+            res.status(400).json({ message: "Scheduled date cannot be in the past." });
             return;
         }
 
