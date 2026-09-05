@@ -53,29 +53,36 @@ export const generateAuthUrl = async (req: AuthRequest, res: Response): Promise<
         const origin = req.headers.origin || process.env.FRONTEND_URL || "http://localhost:5173";
         const redirectUrl = `${origin}/accounts`;
 
+        const queryParams: Record<string, any> = {
+            profileId,
+            redirectUrl,
+            redirect_url: redirectUrl,
+        };
+
+        if (platform === "instagram") {
+            // Direct Instagram Login vs Instagram via Facebook Page
+            queryParams.loginMethod = req.query.loginMethod === "facebook_login" ? "facebook_login" : "instagram_login";
+        }
+
         const result = await zernio.connect.getConnectUrl({
             path: { platform: platform as any },
-            query: {
-                profileId,
-                redirectUrl,
-                redirect_url: redirectUrl,
-            } as any
-        })
+            query: queryParams as any
+        });
 
-        const data = result.data as any
-        console.log("getConnectUrl response:", JSON.stringify(data, null, 2))
+        const data = result.data as any;
+        console.log("getConnectUrl response:", JSON.stringify(data, null, 2));
 
         const authUrl = data?.authUrl || data?.auth_url || data?.url;
         if (!authUrl) {
-            throw new Error(`Failed to get connect url from zernio. Response: ${JSON.stringify(data)}`)
+            throw new Error(`Failed to get connect url from zernio. Response: ${JSON.stringify(data)}`);
         }
 
-        res.status(200).json({ url: authUrl })
+        res.status(200).json({ url: authUrl });
     }
     catch (error: any) {
         res.status(500).json({ message: error?.message || "Internal Server Error" });
     }
-}
+};
 
 
 
@@ -86,7 +93,7 @@ export const syncAccounts = async (req: AuthRequest, res: Response): Promise<voi
         const profileId = await getOrCreateZernioProfile(req.user);
         const result = await zernio.accounts.listAccounts({
             query: { profileId } as any
-        })
+        });
 
         const data = result.data as any;
         const zernioAccounts: any[] = data?.accounts || (Array.isArray(data) ? data : []);
@@ -108,6 +115,15 @@ export const syncAccounts = async (req: AuthRequest, res: Response): Promise<voi
                 continue;
             }
 
+            const loginMethod = zAccount.loginMethod || (zAccount.facebookPageId || zAccount.pageId ? "facebook_login" : "instagram_login");
+            const isFbLinked = loginMethod === "facebook_login" || Boolean(zAccount.facebookPageId || zAccount.pageId);
+
+            const capabilities = {
+                posting: true,
+                analytics: true,
+                catalogAudio: normalizedPlatform === "instagram" ? isFbLinked : true,
+                paidPartnership: normalizedPlatform === "instagram" ? isFbLinked : true,
+            };
 
             const account = await Account.findOneAndUpdate(
                 { zernioAccountId: zid },
@@ -118,6 +134,8 @@ export const syncAccounts = async (req: AuthRequest, res: Response): Promise<voi
                     zernioAccountId: zid,
                     status: "connected",
                     avatarUrl: zAccount.avatarUrl || zAccount.picture || zAccount.profile_image_url,
+                    loginMethod,
+                    capabilities,
                 },
                 { upsert: true, returnDocument: 'after' }
             );

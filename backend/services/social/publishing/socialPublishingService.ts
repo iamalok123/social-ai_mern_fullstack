@@ -38,26 +38,7 @@ export async function publishPost(post: any): Promise<PublishResult> {
             return { success: false, postId: post._id.toString(), error: noAccountMsg };
         }
 
-        // Build Zernio platforms payload via registered functional adapters
-        const zernioPlatforms: ZernioPlatformPayload[] = [];
-        for (const acc of accounts) {
-            const adapter = SocialPlatformRegistry.get(acc.platform);
-            if (adapter) {
-                const entry = adapter.buildZernioPlatformEntry(acc, post);
-                zernioPlatforms.push(entry);
-            } else {
-                // Generic fallback for any unregistered platform
-                zernioPlatforms.push({
-                    platform: acc.platform,
-                    accountId: acc.zernioAccountId!,
-                    ...(post.platformSpecificData?.[acc.platform]
-                        ? { platformSpecificData: post.platformSpecificData[acc.platform] }
-                        : {})
-                });
-            }
-        }
-
-        // Consolidate mediaItems payload
+        // Consolidate mediaItems payload first
         let mediaItemsPayload: MediaItem[] = [];
         if (Array.isArray(post.mediaItems) && post.mediaItems.length > 0) {
             mediaItemsPayload = post.mediaItems.map((item: any) => ({
@@ -82,11 +63,37 @@ export async function publishPost(post: any): Promise<PublishResult> {
             }];
         }
 
-        // Filter media per platform capabilities if any platform requires special constraints
+        // Build Zernio platforms payload via registered functional adapters
+        const zernioPlatforms: ZernioPlatformPayload[] = [];
         for (const acc of accounts) {
             const adapter = SocialPlatformRegistry.get(acc.platform);
-            if (adapter?.filterMediaItems) {
-                mediaItemsPayload = adapter.filterMediaItems(mediaItemsPayload);
+            if (adapter) {
+                const entry = adapter.buildZernioPlatformEntry(acc, post);
+                // If multiple accounts and this platform has stricter media limit, assign non-destructive customMedia
+                if (accounts.length > 1 && adapter.filterMediaItems && mediaItemsPayload.length > 0) {
+                    const filtered = adapter.filterMediaItems([...mediaItemsPayload]);
+                    if (filtered.length < mediaItemsPayload.length) {
+                        entry.customMedia = filtered.map((m) => ({ type: m.type, url: m.url }));
+                    }
+                }
+                zernioPlatforms.push(entry);
+            } else {
+                // Generic fallback for any unregistered platform
+                zernioPlatforms.push({
+                    platform: acc.platform,
+                    accountId: acc.zernioAccountId!,
+                    ...(post.platformSpecificData?.[acc.platform]
+                        ? { platformSpecificData: post.platformSpecificData[acc.platform] }
+                        : {})
+                });
+            }
+        }
+
+        // If single account targets a platform with specific media filtering
+        if (accounts.length === 1) {
+            const singleAdapter = SocialPlatformRegistry.get(accounts[0].platform);
+            if (singleAdapter?.filterMediaItems && mediaItemsPayload.length > 0) {
+                mediaItemsPayload = singleAdapter.filterMediaItems([...mediaItemsPayload]);
             }
         }
 

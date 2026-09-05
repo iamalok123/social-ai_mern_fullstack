@@ -13,8 +13,24 @@ export function getRawPlatformData(postData: any, platformId: string): Record<st
             psData = {};
         }
     }
+    if (psData && typeof psData === "object" && psData[platformId]) {
+        return psData[platformId];
+    }
+
+    let pDetails = postData?.platformDetails;
+    if (typeof pDetails === "string") {
+        try {
+            pDetails = JSON.parse(pDetails);
+        } catch {
+            pDetails = {};
+        }
+    }
+    if (pDetails && typeof pDetails === "object" && pDetails[platformId]) {
+        return pDetails[platformId];
+    }
+
     if (psData && typeof psData === "object") {
-        return psData[platformId] || psData;
+        return psData;
     }
     return {};
 }

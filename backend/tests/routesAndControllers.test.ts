@@ -3,8 +3,10 @@ import assert from "node:assert";
 import "../services/social/index.js";
 import { postValidationMiddleware } from "../middlewares/postValidationMiddleware.js";
 import { getAllPlatforms, getPlatformById } from "../controllers/platformController.js";
-import { getPosts, deletePost } from "../controllers/postController.js";
+import { getPosts, deletePost, getPostAnalytics } from "../controllers/postController.js";
+import { searchInstagramAudio, getAccountHealth } from "../controllers/accountController.js";
 import { Post } from "../models/Post.js";
+import { Account } from "../models/Account.js";
 import { SocialPlatformRegistry } from "../services/social/core/SocialPlatformRegistry.js";
 
 describe("Routes, Controllers & Middlewares Test Suite", () => {
@@ -418,4 +420,119 @@ describe("Routes, Controllers & Middlewares Test Suite", () => {
             }
         });
     });
+
+    describe("Post Analytics & Account Diagnostics Endpoints", () => {
+        it("getPostAnalytics: returns 404 when post is not found", async () => {
+            const originalFindOne = Post.findOne;
+            (Post as any).findOne = () => Promise.resolve(null);
+
+            try {
+                let statusCode = 200;
+                let responseBody: any = null;
+                const req: any = {
+                    params: { id: "non_existent_post" },
+                    user: { _id: "user_123" },
+                    query: {}
+                };
+                const res: any = {
+                    status: (code: number) => {
+                        statusCode = code;
+                        return { json: (data: any) => { responseBody = data; } };
+                    }
+                };
+
+                await getPostAnalytics(req, res);
+                assert.strictEqual(statusCode, 404);
+                assert.strictEqual(responseBody?.message, "Post not found");
+            } finally {
+                (Post as any).findOne = originalFindOne;
+            }
+        });
+
+        it("getPostAnalytics: returns 400 when post has no published external ID for platform", async () => {
+            const originalFindOne = Post.findOne;
+            (Post as any).findOne = () => Promise.resolve({
+                _id: "draft_post_id",
+                user: "user_123",
+                platforms: ["instagram"],
+                platformDetails: {}
+            });
+
+            try {
+                let statusCode = 200;
+                let responseBody: any = null;
+                const req: any = {
+                    params: { id: "draft_post_id" },
+                    user: { _id: "user_123" },
+                    query: { platform: "instagram" }
+                };
+                const res: any = {
+                    status: (code: number) => {
+                        statusCode = code;
+                        return { json: (data: any) => { responseBody = data; } };
+                    }
+                };
+
+                await getPostAnalytics(req, res);
+                assert.strictEqual(statusCode, 400);
+                assert.strictEqual(responseBody?.message, "Post has not been published to instagram or lacks an external ID");
+            } finally {
+                (Post as any).findOne = originalFindOne;
+            }
+        });
+
+        it("searchInstagramAudio: returns 404 when no connected Instagram account exists", async () => {
+            const originalFindOne = Account.findOne;
+            (Account as any).findOne = () => Promise.resolve(null);
+
+            try {
+                let statusCode = 200;
+                let responseBody: any = null;
+                const req: any = {
+                    params: {},
+                    query: { q: "pop" },
+                    user: { _id: "user_123" }
+                };
+                const res: any = {
+                    status: (code: number) => {
+                        statusCode = code;
+                        return { json: (data: any) => { responseBody = data; } };
+                    }
+                };
+
+                await searchInstagramAudio(req, res);
+                assert.strictEqual(statusCode, 404);
+                assert.strictEqual(responseBody?.message, "Connected Instagram account not found. Please connect an Instagram account first.");
+            } finally {
+                (Account as any).findOne = originalFindOne;
+            }
+        });
+
+        it("getAccountHealth: returns 404 when account is not found", async () => {
+            const originalFindOne = Account.findOne;
+            (Account as any).findOne = () => Promise.resolve(null);
+
+            try {
+                let statusCode = 200;
+                let responseBody: any = null;
+                const req: any = {
+                    params: { id: "missing_account" },
+                    user: { _id: "user_123" }
+                };
+                const res: any = {
+                    status: (code: number) => {
+                        statusCode = code;
+                        return { json: (data: any) => { responseBody = data; } };
+                    }
+                };
+
+                await getAccountHealth(req, res);
+                assert.strictEqual(statusCode, 404);
+                assert.strictEqual(responseBody?.message, "Account not found or not connected to Zernio");
+            } finally {
+                (Account as any).findOne = originalFindOne;
+            }
+        });
+    });
 });
+

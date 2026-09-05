@@ -6,6 +6,7 @@ import TwitterPostPreview from "../components/Media/Twitter";
 import LinkedInPostPreview from "../components/Media/Linkedin";
 import FacebookPostPreview from "../components/Media/Facebook";
 import InstagramPostPreview from "../components/Media/Instagram";
+import InstagramAudioModal, { type SelectedAudioConfig } from "../components/Media/InstagramAudioModal";
 import MediaManagerModal from "../components/Media/MediaManagerModal";
 import { calculateTwitterLength, getMediaUploaderHint, getActivePlatformDisplayName } from "../utils/schedulerUtils";
 import {
@@ -34,7 +35,11 @@ import {
     InfoIcon,
     ZapIcon,
     LayersIcon,
-    GlobeIcon
+    GlobeIcon,
+    BarChart3Icon,
+    MusicIcon,
+    SparklesIcon,
+    MapPinIcon
 } from "lucide-react";
 import { toast } from "sonner";
 import { api, API_PATHS } from "../api/axios";
@@ -158,6 +163,27 @@ const Scheduler = () => {
     const [facebookDraft, setFacebookDraft] = useState(false);
     const [facebookTextPreset, setFacebookTextPreset] = useState("");
     const [facebookGeoCountries, setFacebookGeoCountries] = useState("");
+
+    // Instagram-specific features
+    const [instagramContentType, setInstagramContentType] = useState<"feed" | "reel" | "story">("feed");
+    const [instagramShareToFeed, setInstagramShareToFeed] = useState<boolean>(true);
+    const [instagramAudioConfig, setInstagramAudioConfig] = useState<SelectedAudioConfig | null>(null);
+    const [isAudioModalOpen, setIsAudioModalOpen] = useState<boolean>(false);
+    const [instagramMuteAudio, setInstagramMuteAudio] = useState<boolean>(false);
+    const [instagramTrial, setInstagramTrial] = useState<boolean>(false);
+    const [instagramTrialGraduation, setInstagramTrialGraduation] = useState<"SS_PERFORMANCE" | "MANUAL">("SS_PERFORMANCE");
+    const [instagramThumbnail, setInstagramThumbnail] = useState<string>("");
+    const [instagramThumbOffset, setInstagramThumbOffset] = useState<number>(0);
+    const [instagramCollaborators, setInstagramCollaborators] = useState<string>("");
+    const [instagramLocationId, setInstagramLocationId] = useState<string>("");
+    const [instagramPaidPartnership, setInstagramPaidPartnership] = useState<boolean>(false);
+    const [instagramSponsors, setInstagramSponsors] = useState<string>("");
+    const [instagramCommentsEnabled, setInstagramCommentsEnabled] = useState<boolean>(true);
+
+    // Analytics Modal state
+    const [analyticsModalPost, setAnalyticsModalPost] = useState<string | null>(null);
+    const [analyticsData, setAnalyticsData] = useState<any | null>(null);
+    const [loadingAnalytics, setLoadingAnalytics] = useState<boolean>(false);
 
     // Media Manager Modal state
     const [isMediaModalOpen, setIsMediaModalOpen] = useState(false);
@@ -320,6 +346,9 @@ const Scheduler = () => {
     const isInstagramSelected = selectedPlatforms.includes("instagram");
     const maxAllowedImages = isTwitterSelected ? 4 : (isFacebookSelected || isInstagramSelected ? 10 : 20);
 
+    const connectedInstagramAccount = connectedAccounts.find((a) => a.platform === "instagram");
+    const isInstagramViaFacebook = connectedInstagramAccount?.loginMethod === "facebook_login";
+
     const mediaUploaderHint = getMediaUploaderHint(
         selectedPlatforms,
         isTwitterSelected,
@@ -327,6 +356,21 @@ const Scheduler = () => {
         isInstagramSelected,
         isLinkedInSelected
     );
+
+    const handleViewAnalytics = async (postId: string) => {
+        setLoadingAnalytics(true);
+        setAnalyticsModalPost(postId);
+        try {
+            const { data } = await api.get(API_PATHS.POSTS.ANALYTICS(postId));
+            setAnalyticsData(data?.data || data?.analytics || data);
+        } catch (error: any) {
+            toast.error(error?.response?.data?.message || "Failed to fetch post analytics");
+            setAnalyticsModalPost(null);
+            setAnalyticsData(null);
+        } finally {
+            setLoadingAnalytics(false);
+        }
+    };
 
     const togglePlatform = (id: string) => {
         setSelectedPlatforms((prev) => {
@@ -496,9 +540,32 @@ const Scheduler = () => {
         }
 
         const hasMedia = mediaFiles.length > 0 || existingMediaUrls.length > 0;
-        if (selectedPlatforms.includes("instagram") && !hasMedia) {
-            toast.error("Instagram requires an image or video");
+        const totalMediaCount = totalImagesCount + (hasVideo ? 1 : 0);
+
+        // Check caption requirement (only single-platform Instagram stories can omit caption)
+        const isSingleInstagramStory = selectedPlatforms.length === 1 && selectedPlatforms[0] === "instagram" && instagramContentType === "story";
+        if (!content.trim() && !isSingleInstagramStory) {
+            toast.error("Please enter post caption / content.");
             return;
+        }
+
+        if (isInstagramSelected) {
+            if (!hasMedia) {
+                toast.error("Instagram requires an image or video.");
+                return;
+            }
+            if (instagramContentType === "story" && totalMediaCount > 1) {
+                toast.error(`Instagram Stories only support 1 media item (You have ${totalMediaCount}). Please keep only 1 image or video.`);
+                return;
+            }
+            if (instagramContentType === "reel" && !hasVideo) {
+                toast.error("Instagram Reels require a video file.");
+                return;
+            }
+            if (instagramContentType === "feed" && totalMediaCount > 10) {
+                toast.error(`Instagram carousel allows a maximum of 10 items (You have ${totalMediaCount}).`);
+                return;
+            }
         }
 
         const scheduledFor = new Date(`${scheduledDate}T${scheduledTime}:00`).toISOString();
@@ -539,6 +606,62 @@ const Scheduler = () => {
             }
             platformSpecificData.facebook = fbData;
         }
+
+        if (isInstagramSelected) {
+            const igData: Record<string, any> = {
+                contentType: instagramContentType,
+            };
+            if (instagramContentType === "reel") {
+                igData.shareToFeed = instagramShareToFeed;
+                if (instagramThumbOffset > 0) {
+                    igData.thumbOffset = instagramThumbOffset;
+                }
+                if (instagramAudioConfig) {
+                    igData.audioConfiguration = {
+                        audioId: instagramAudioConfig.audioId,
+                        audioVolume: instagramAudioConfig.audioVolume,
+                        videoVolume: instagramAudioConfig.videoVolume,
+                    };
+                }
+                if (instagramMuteAudio) {
+                    igData.muteAudio = true;
+                }
+                if (instagramTrial) {
+                    igData.trialParams = {
+                        graduationStrategy: instagramTrialGraduation,
+                    };
+                }
+            }
+            if (instagramThumbnail.trim()) {
+                igData.instagramThumbnail = instagramThumbnail.trim();
+                igData.reelCover = instagramThumbnail.trim();
+            }
+            if (instagramContentType !== "story") {
+                if (instagramCollaborators.trim()) {
+                    igData.collaborators = instagramCollaborators
+                        .split(",")
+                        .map((c) => c.trim().replace(/^@/, ""))
+                        .filter(Boolean);
+                }
+                if (instagramLocationId.trim()) {
+                    igData.locationId = instagramLocationId.trim();
+                }
+                if (instagramPaidPartnership) {
+                    igData.isPaidPartnership = true;
+                    if (instagramSponsors.trim()) {
+                        igData.brandedContentSponsors = instagramSponsors
+                            .split(",")
+                            .map((s) => s.trim().replace(/^@/, ""))
+                            .filter(Boolean);
+                    }
+                }
+                if (!instagramCommentsEnabled) {
+                    igData.commentsEnabled = false;
+                }
+            }
+            platformSpecificData.instagram = igData;
+        }
+
         if (Object.keys(platformSpecificData).length > 0) {
             formData.append("platformSpecificData", JSON.stringify(platformSpecificData));
         }
@@ -573,6 +696,19 @@ const Scheduler = () => {
             setFacebookDraft(false);
             setFacebookTextPreset("");
             setFacebookGeoCountries("");
+            setInstagramContentType("feed");
+            setInstagramShareToFeed(true);
+            setInstagramAudioConfig(null);
+            setInstagramMuteAudio(false);
+            setInstagramTrial(false);
+            setInstagramTrialGraduation("SS_PERFORMANCE");
+            setInstagramThumbnail("");
+            setInstagramThumbOffset(0);
+            setInstagramCollaborators("");
+            setInstagramLocationId("");
+            setInstagramPaidPartnership(false);
+            setInstagramSponsors("");
+            setInstagramCommentsEnabled(true);
             fetchPosts();
         } catch (error: any) {
             toast.error(error?.response?.data?.message || error?.message || "Failed to schedule post");
@@ -1256,6 +1392,324 @@ const Scheduler = () => {
                                     </div>
                                 )}
 
+                                {/* Instagram Options Card */}
+                                {isInstagramSelected && (
+                                    <div className="p-4 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/40 space-y-3.5 animate-in fade-in">
+                                        <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-zinc-800/60">
+                                            <div className="flex items-center gap-2">
+                                                <span className="w-5 h-5 rounded-lg bg-linear-to-tr from-amber-500 via-rose-500 to-purple-600 flex items-center justify-center text-white text-[10px] font-bold shadow-2xs">
+                                                    ig
+                                                </span>
+                                                <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider">
+                                                    Instagram Options
+                                                </span>
+                                            </div>
+                                            {/* Connection Method Status Badge */}
+                                            {connectedInstagramAccount?.loginMethod === "facebook_login" ? (
+                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-900/60 flex items-center gap-1">
+                                                    <ZapIcon className="size-2.5" /> Facebook Connected (Full Tools)
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] font-medium text-slate-500 dark:text-zinc-400">
+                                                    Direct Login Active
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Post Format Selector */}
+                                        <div>
+                                            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1.5">
+                                                Publishing Format
+                                            </label>
+                                            <div className="grid grid-cols-3 gap-2">
+                                                {[
+                                                    { id: "feed", label: "Feed / Carousel", desc: "Up to 10 images/videos" },
+                                                    { id: "reel", label: "Reel", desc: "Video up to 90s" },
+                                                    { id: "story", label: "Story", desc: "24h • 1 item • No caption" },
+                                                ].map((fmt) => (
+                                                    <button
+                                                        key={fmt.id}
+                                                        type="button"
+                                                        onClick={() => setInstagramContentType(fmt.id as any)}
+                                                        className={`px-3 py-2 rounded-xl text-left border transition-all cursor-pointer ${
+                                                            instagramContentType === fmt.id
+                                                                ? "bg-pink-50 dark:bg-pink-950/50 border-pink-400 dark:border-pink-600 text-pink-900 dark:text-pink-100 shadow-2xs"
+                                                                : "bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700"
+                                                        }`}
+                                                    >
+                                                        <div className="text-xs font-bold">{fmt.label}</div>
+                                                        <div className="text-[10px] text-slate-500 dark:text-zinc-400">{fmt.desc}</div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Story Info Banner */}
+                                        {instagramContentType === "story" && (
+                                            <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/70 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-300 animate-in fade-in flex items-start gap-2">
+                                                <InfoIcon className="size-3.5 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                                                <span>
+                                                    Instagram Stories display for 24 hours. Stories accept exactly 1 image or video. Captions, first comments, paid partnerships, and catalog audio are not displayed on Stories.
+                                                </span>
+                                            </div>
+                                        )}
+
+                                        {/* Reel Specific Controls */}
+                                        {instagramContentType === "reel" && (
+                                            <div className="space-y-3 pt-1 animate-in fade-in">
+                                                {/* Share to Feed Toggle */}
+                                                <div className="flex items-center justify-between">
+                                                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-300 cursor-pointer select-none">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={instagramShareToFeed}
+                                                            onChange={(e) => setInstagramShareToFeed(e.target.checked)}
+                                                            className="rounded border-slate-300 dark:border-zinc-700 text-pink-600 focus:ring-pink-500 size-3.5"
+                                                        />
+                                                        <span className="font-medium">Also share Reel to Main Profile Grid</span>
+                                                    </label>
+                                                    <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                                                        Default: Yes
+                                                    </span>
+                                                </div>
+
+                                                {/* Catalog Audio Picker */}
+                                                <div className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <div className="p-2 rounded-lg bg-pink-100 dark:bg-pink-900/40 text-pink-600 dark:text-pink-400 shrink-0">
+                                                            <MusicIcon className="size-4" />
+                                                        </div>
+                                                        <div className="flex flex-col min-w-0">
+                                                            <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                                                {instagramAudioConfig?.audioTitle || "Reel Catalog Audio / Music"}
+                                                            </span>
+                                                            <span className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">
+                                                                {instagramAudioConfig
+                                                                    ? `${instagramAudioConfig.artistName ? `${instagramAudioConfig.artistName} • ` : ""}Music: ${instagramAudioConfig.audioVolume}% | Video: ${instagramAudioConfig.videoVolume}%`
+                                                                    : "Search & attach licensed music track"}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 shrink-0">
+                                                        {instagramAudioConfig && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setInstagramAudioConfig(null)}
+                                                                className="px-2 py-1 text-[10px] font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg cursor-pointer"
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsAudioModalOpen(true)}
+                                                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-pink-600 hover:bg-pink-500 text-white shadow-xs transition-colors cursor-pointer"
+                                                        >
+                                                            {instagramAudioConfig ? "Change Track" : "Add Music"}
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {/* Mute Original Video Audio */}
+                                                <div className="flex items-center justify-between">
+                                                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-300 cursor-pointer select-none">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={instagramMuteAudio}
+                                                            onChange={(e) => setInstagramMuteAudio(e.target.checked)}
+                                                            className="rounded border-slate-300 dark:border-zinc-700 text-pink-600 focus:ring-pink-500 size-3.5"
+                                                        />
+                                                        <span className="font-medium">Mute original video audio track</span>
+                                                    </label>
+                                                    <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                                                        Keeps only catalog music
+                                                    </span>
+                                                </div>
+
+                                                {/* Trial Reel Toggle (Non-followers only) */}
+                                                <div className="p-3 rounded-xl border border-purple-200/70 dark:border-purple-900/50 bg-purple-50/20 dark:bg-purple-950/10 space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="flex items-center gap-2 text-xs text-purple-900 dark:text-purple-200 cursor-pointer select-none font-semibold">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={instagramTrial}
+                                                                onChange={(e) => setInstagramTrial(e.target.checked)}
+                                                                className="rounded border-purple-300 dark:border-purple-700 text-purple-600 focus:ring-purple-500 size-3.5"
+                                                            />
+                                                            <span className="flex items-center gap-1">
+                                                                <SparklesIcon className="size-3 text-purple-500" />
+                                                                Test on Non-Followers (Trial Reel)
+                                                            </span>
+                                                        </label>
+                                                        <span className="text-[10px] text-purple-700 dark:text-purple-300">
+                                                            Growth Experiment
+                                                        </span>
+                                                    </div>
+                                                    {instagramTrial && (
+                                                        <div className="flex items-center gap-3 pt-1 text-xs">
+                                                            <span className="text-[11px] text-slate-600 dark:text-zinc-400">Graduation Strategy:</span>
+                                                            <label className="flex items-center gap-1 text-[11px] cursor-pointer">
+                                                                <input
+                                                                    type="radio"
+                                                                    name="trialGrad"
+                                                                    checked={instagramTrialGraduation === "SS_PERFORMANCE"}
+                                                                    onChange={() => setInstagramTrialGraduation("SS_PERFORMANCE")}
+                                                                    className="accent-purple-600"
+                                                                />
+                                                                <span>Performance-based</span>
+                                                            </label>
+                                                            <label className="flex items-center gap-1 text-[11px] cursor-pointer">
+                                                                <input
+                                                                    type="radio"
+                                                                    name="trialGrad"
+                                                                    checked={instagramTrialGraduation === "MANUAL"}
+                                                                    onChange={() => setInstagramTrialGraduation("MANUAL")}
+                                                                    className="accent-purple-600"
+                                                                />
+                                                                <span>Manual</span>
+                                                            </label>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Custom Thumbnail URL & Offset */}
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                                                            Cover Image URL <span className="text-slate-400 font-normal">(optional)</span>
+                                                        </label>
+                                                        <input
+                                                            type="text"
+                                                            value={instagramThumbnail}
+                                                            onChange={(e) => setInstagramThumbnail(e.target.value)}
+                                                            placeholder="https://.../cover.jpg"
+                                                            className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white text-xs placeholder-slate-400 outline-none focus:border-pink-500 transition-colors shadow-2xs"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                                                            Video Frame Offset (ms) <span className="text-slate-400 font-normal">(optional)</span>
+                                                        </label>
+                                                        <input
+                                                            type="number"
+                                                            min="0"
+                                                            step="500"
+                                                            value={instagramThumbOffset || ""}
+                                                            onChange={(e) => setInstagramThumbOffset(Number(e.target.value))}
+                                                            placeholder="e.g. 2500"
+                                                            className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white text-xs placeholder-slate-400 outline-none focus:border-pink-500 transition-colors shadow-2xs"
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Feed / Carousel Thumbnail */}
+                                        {instagramContentType === "feed" && (
+                                            <div>
+                                                <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                                                    Custom Thumbnail URL <span className="text-slate-400 font-normal">(for video in feed)</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={instagramThumbnail}
+                                                    onChange={(e) => setInstagramThumbnail(e.target.value)}
+                                                    placeholder="https://.../thumb.jpg"
+                                                    className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white text-xs placeholder-slate-400 outline-none focus:border-pink-500 transition-colors shadow-2xs"
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Collaborators & Location Tagging (Not on Story) */}
+                                        {instagramContentType !== "story" && (
+                                            <div className="space-y-3 pt-1">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                                    <div>
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                                                                Collaborators <span className="text-slate-400 font-normal">(max 3)</span>
+                                                            </label>
+                                                            <span className="text-[10px] text-slate-400">comma-separated</span>
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            value={instagramCollaborators}
+                                                            onChange={(e) => setInstagramCollaborators(e.target.value)}
+                                                            placeholder="@partner1, @brand"
+                                                            className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white text-xs placeholder-slate-400 outline-none focus:border-pink-500 transition-colors shadow-2xs"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <label className="text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1">
+                                                                <MapPinIcon className="size-3 text-rose-500" /> Location ID
+                                                            </label>
+                                                            <span className="text-[10px] text-slate-400">FB Page Numeric ID</span>
+                                                        </div>
+                                                        <input
+                                                            type="text"
+                                                            value={instagramLocationId}
+                                                            onChange={(e) => setInstagramLocationId(e.target.value)}
+                                                            placeholder="e.g. 104768392892900"
+                                                            className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white text-xs placeholder-slate-400 outline-none focus:border-pink-500 transition-colors shadow-2xs"
+                                                        />
+                                                    </div>
+                                                </div>
+
+                                                {/* Paid Partnership Section */}
+                                                <div className="p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 space-y-2">
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-300 cursor-pointer select-none font-semibold">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={instagramPaidPartnership}
+                                                                onChange={(e) => setInstagramPaidPartnership(e.target.checked)}
+                                                                className="rounded border-slate-300 dark:border-zinc-700 text-pink-600 focus:ring-pink-500 size-3.5"
+                                                            />
+                                                            <span>Paid Partnership / Branded Content Label</span>
+                                                        </label>
+                                                        {!isInstagramViaFacebook && (
+                                                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                                                                Requires Facebook Page Login
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {instagramPaidPartnership && (
+                                                        <div className="pt-1 animate-in fade-in">
+                                                            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300 mb-1">
+                                                                Sponsor Handles <span className="text-slate-400 font-normal">(max 2 brands, comma-separated)</span>
+                                                            </label>
+                                                            <input
+                                                                type="text"
+                                                                value={instagramSponsors}
+                                                                onChange={(e) => setInstagramSponsors(e.target.value)}
+                                                                placeholder="@brand1, @brand2"
+                                                                className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-900 dark:text-white text-xs placeholder-slate-400 outline-none focus:border-pink-500 transition-colors shadow-2xs"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Turn off Comments Toggle */}
+                                                <div className="flex items-center justify-between pt-0.5">
+                                                    <label className="flex items-center gap-2 text-xs text-slate-700 dark:text-zinc-300 cursor-pointer select-none">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!instagramCommentsEnabled}
+                                                            onChange={(e) => setInstagramCommentsEnabled(!e.target.checked)}
+                                                            className="rounded border-slate-300 dark:border-zinc-700 text-pink-600 focus:ring-pink-500 size-3.5"
+                                                        />
+                                                        <span className="font-medium">Turn off comments for this post</span>
+                                                    </label>
+                                                    <span className="text-[10px] text-slate-400 dark:text-zinc-500">
+                                                        Comments enabled by default
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Submit Button */}
                                 <button
                                     type="submit"
@@ -1377,7 +1831,23 @@ const Scheduler = () => {
                                     />
                                 )}
                                 {currentPlatformId === "instagram" && (
-                                    <InstagramPostPreview content={content} mediaUrl={previewMediaUrl} mediaType={activeMediaType} user={user} />
+                                    <InstagramPostPreview
+                                        content={content}
+                                        mediaUrl={previewMediaUrl}
+                                        mediaUrls={allPreviewMediaUrls}
+                                        mediaType={activeMediaType}
+                                        user={user}
+                                        contentType={instagramContentType}
+                                        collaborators={instagramCollaborators ? instagramCollaborators.split(",").map(c => c.trim().replace(/^@/, "")).filter(Boolean) : []}
+                                        locationId={instagramLocationId}
+                                        isPaidPartnership={instagramPaidPartnership}
+                                        brandedContentSponsors={instagramSponsors ? instagramSponsors.split(",").map(s => s.trim().replace(/^@/, "")).filter(Boolean) : []}
+                                        audioTitle={instagramAudioConfig?.audioTitle}
+                                        artistName={instagramAudioConfig?.artistName}
+                                        muteAudio={instagramMuteAudio}
+                                        isTrial={instagramTrial}
+                                        commentsEnabled={instagramCommentsEnabled}
+                                    />
                                 )}
                             </div>
                         </div>
@@ -1801,10 +2271,21 @@ const Scheduler = () => {
                                                             </span>
                                                         )}
                                                         {post.status === "published" && (
-                                                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60">
-                                                                <CheckCircle2Icon className="size-3 text-emerald-500" />
-                                                                <span>Published</span>
-                                                            </span>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60">
+                                                                    <CheckCircle2Icon className="size-3 text-emerald-500" />
+                                                                    <span>Published</span>
+                                                                </span>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleViewAnalytics(post._id)}
+                                                                    title="View Post Performance Analytics"
+                                                                    className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 transition-colors cursor-pointer"
+                                                                >
+                                                                    <BarChart3Icon className="size-3 text-pink-500" />
+                                                                    <span>Analytics</span>
+                                                                </button>
+                                                            </div>
                                                         )}
                                                         {post.status === "failed" && (
                                                             <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/60">
@@ -2030,6 +2511,114 @@ const Scheduler = () => {
                 )}
                 onClearAll={handleClearAllMedia}
             />
+
+            {/* Instagram Catalog Audio Modal */}
+            <InstagramAudioModal
+                isOpen={isAudioModalOpen}
+                onClose={() => setIsAudioModalOpen(false)}
+                onSelectAudio={(config) => setInstagramAudioConfig(config)}
+                currentAudioConfig={instagramAudioConfig}
+                accountId={connectedInstagramAccount?._id}
+            />
+
+            {/* Post Analytics Modal */}
+            {analyticsModalPost && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+                    <div
+                        className="relative w-full max-w-md bg-white dark:bg-zinc-950 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-2xl p-6 overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-zinc-800">
+                            <div className="flex items-center gap-2">
+                                <div className="size-8 rounded-xl bg-linear-to-tr from-yellow-500 via-pink-600 to-purple-700 flex items-center justify-center text-white shadow-xs">
+                                    <BarChart3Icon className="size-4" />
+                                </div>
+                                <div>
+                                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Post Performance</h3>
+                                    <p className="text-[11px] text-slate-500 dark:text-zinc-400">Real-time engagement analytics</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setAnalyticsModalPost(null);
+                                    setAnalyticsData(null);
+                                }}
+                                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-zinc-200 cursor-pointer"
+                            >
+                                <XIcon className="size-4" />
+                            </button>
+                        </div>
+
+                        <div className="mt-4">
+                            {loadingAnalytics ? (
+                                <div className="flex flex-col items-center justify-center py-8">
+                                    <Loader2Icon className="size-6 animate-spin text-pink-500" />
+                                    <span className="text-xs text-slate-500 mt-2">Loading performance metrics...</span>
+                                </div>
+                            ) : analyticsData ? (
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-center">
+                                        <span className="text-[10px] uppercase font-bold text-slate-400">Impressions</span>
+                                        <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                                            {analyticsData.impressions?.toLocaleString() ?? 0}
+                                        </div>
+                                    </div>
+                                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-center">
+                                        <span className="text-[10px] uppercase font-bold text-slate-400">Reach</span>
+                                        <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                                            {analyticsData.reach?.toLocaleString() ?? 0}
+                                        </div>
+                                    </div>
+                                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-center">
+                                        <span className="text-[10px] uppercase font-bold text-slate-400">Likes</span>
+                                        <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                                            {analyticsData.likes?.toLocaleString() ?? 0}
+                                        </div>
+                                    </div>
+                                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-center">
+                                        <span className="text-[10px] uppercase font-bold text-slate-400">Comments</span>
+                                        <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                                            {analyticsData.comments?.toLocaleString() ?? 0}
+                                        </div>
+                                    </div>
+                                    {analyticsData.shares !== undefined && (
+                                        <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-center">
+                                            <span className="text-[10px] uppercase font-bold text-slate-400">Shares</span>
+                                            <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                                                {analyticsData.shares?.toLocaleString() ?? 0}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {analyticsData.saved !== undefined && (
+                                        <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-center">
+                                            <span className="text-[10px] uppercase font-bold text-slate-400">Saved</span>
+                                            <div className="text-lg font-bold text-slate-900 dark:text-white mt-0.5">
+                                                {analyticsData.saved?.toLocaleString() ?? 0}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <div className="py-6 text-center text-xs text-slate-500">
+                                    No analytics metrics available yet for this post.
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-5 pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
+                            <button
+                                onClick={() => {
+                                    setAnalyticsModalPost(null);
+                                    setAnalyticsData(null);
+                                }}
+                                className="px-4 py-2 text-xs font-semibold rounded-xl bg-slate-900 text-white dark:bg-white dark:text-zinc-900 hover:bg-slate-800 transition-colors cursor-pointer"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

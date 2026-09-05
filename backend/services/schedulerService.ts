@@ -21,7 +21,19 @@ export const evaluateScheduledPosts = async () => {
         let failedCount = 0;
 
         for (const post of postsToPublish) {
-            const result = await socialPublishingService.publishPost(post);
+            // Atomically claim post to prevent concurrent ticks or long video transcodes from re-dispatching
+            const claimedPost = await Post.findOneAndUpdate(
+                { _id: post._id, status: "scheduled" },
+                { $set: { status: "publishing" } },
+                { returnDocument: "after" }
+            );
+
+            if (!claimedPost) {
+                // Post was already claimed or updated by another process
+                continue;
+            }
+
+            const result = await socialPublishingService.publishPost(claimedPost);
             if (result.success) {
                 publishedCount++;
             } else {

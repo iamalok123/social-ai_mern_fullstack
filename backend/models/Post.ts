@@ -74,17 +74,35 @@ const instagramDetailsSchema = new mongoose.Schema(
         userTags: [
             {
                 username: { type: String, required: true },
-                x: { type: Number, required: true },
-                y: { type: Number, required: true },
+                x: { type: Number },
+                y: { type: Number },
                 mediaIndex: { type: Number, default: 0 }
             }
         ],
         reelCover: { type: String },
+        instagramThumbnail: { type: String },
+        thumbOffset: { type: Number, default: 0 },
         audioName: { type: String },
+        audioConfiguration: {
+            audioId: { type: String },
+            audioVolume: { type: Number, min: 0, max: 100, default: 100 },
+            videoVolume: { type: Number, min: 0, max: 100, default: 100 }
+        },
+        muteAudio: { type: Boolean, default: false },
         isAiGenerated: { type: Boolean, default: false },
+        isPaidPartnership: { type: Boolean, default: false },
+        brandedContentSponsors: [{ type: String }],
+        commentsEnabled: { type: Boolean, default: true },
+        locationId: { type: String },
+        trialParams: {
+            graduationStrategy: {
+                type: String,
+                enum: ["MANUAL", "SS_PERFORMANCE"]
+            }
+        },
         status: {
             type: String,
-            enum: ["pending", "published", "failed"],
+            enum: ["pending", "publishing", "published", "failed"],
             default: "pending"
         },
         publishedPostId: { type: String },
@@ -188,7 +206,7 @@ const postSchema = new mongoose.Schema(
         },
         status: {
             type: String,
-            enum: ["draft", "scheduled", "published", "failed", "partially_published"],
+            enum: ["draft", "scheduled", "publishing", "published", "failed", "partially_published"],
             default: "scheduled"
         },
         failedReason: {

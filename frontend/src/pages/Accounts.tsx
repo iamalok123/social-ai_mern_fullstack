@@ -5,9 +5,12 @@ import { api, API_PATHS } from "../api/axios"
 import { PLATFORMS } from "../assets/assets"
 import { AlertTriangleIcon } from "lucide-react"
 
+import InstagramConnectModal from "../components/Account/InstagramConnectModal"
+
 const Accounts = () => {
     const [accounts, setAccounts] = useState<any[]>([])
     const [connecting, setConnecting] = useState<string | null>(null)
+    const [showInstagramModal, setShowInstagramModal] = useState<boolean>(false)
 
     const fetchAccounts = async (isSync = false, platform?: string | null, successMsg?: string) => {
         try {
@@ -50,16 +53,29 @@ const Accounts = () => {
         }
     }, [])
 
-    const handleConnect = async (platformId: string) => {
+    const triggerConnect = async (platformId: string, loginMethod?: string) => {
         setConnecting(platformId);
         try {
-            const { data } = await api.get(API_PATHS.OAUTH.GET_CONNECT_URL(platformId));
+            const { data } = await api.get(API_PATHS.OAUTH.GET_CONNECT_URL(platformId, loginMethod));
             window.location.href = data.url;
         } catch (error: any) {
-            toast.error(error?.response?.data?.message || error?.message || `Failed to connect ${platformId}`)
-            setConnecting(null)
+            toast.error(error?.response?.data?.message || error?.message || `Failed to connect ${platformId}`);
+            setConnecting(null);
         }
-    }
+    };
+
+    const handleConnect = async (platformId: string) => {
+        if (platformId === "instagram") {
+            setShowInstagramModal(true);
+            return;
+        }
+        await triggerConnect(platformId);
+    };
+
+    const handleInstagramModalSelect = async (loginMethod: "instagram_login" | "facebook_login") => {
+        setShowInstagramModal(false);
+        await triggerConnect("instagram", loginMethod);
+    };
 
     const handleDisconnect = async (accountId: string) => {
         try {
@@ -104,6 +120,14 @@ const Accounts = () => {
                 connecting={connecting}
                 onConnect={handleConnect}
                 onDisconnect={handleDisconnect}
+            />
+
+            {/* Instagram Connection Choice Modal */}
+            <InstagramConnectModal
+                isOpen={showInstagramModal}
+                onClose={() => setShowInstagramModal(false)}
+                onSelectOption={handleInstagramModalSelect}
+                isConnecting={connecting === "instagram"}
             />
         </div>
     )

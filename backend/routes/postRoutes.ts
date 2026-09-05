@@ -1,7 +1,7 @@
 import express from "express";
 import { protect } from "../middlewares/authMiddleware.js";
 import { postValidationMiddleware } from "../middlewares/postValidationMiddleware.js";
-import { deletePost, getPosts, schedulePost } from "../controllers/postController.js";
+import { deletePost, getPostAnalytics, getPosts, schedulePost } from "../controllers/postController.js";
 import { deleteGeneration, generatePost, getGenerations } from "../controllers/generationController.js";
 import { upload } from "../config/multer.js";
 import { evaluateScheduledPosts } from "../services/schedulerService.js";
@@ -18,6 +18,7 @@ postRouter.get('/cron-trigger', async (_req, res) => {
 });
 
 postRouter.get('/', protect, getPosts);
+postRouter.get('/:id/analytics', protect, getPostAnalytics);
 postRouter.delete('/:id', protect, deletePost);
 postRouter.get('/generations', protect, getGenerations);
 postRouter.delete('/generations/:id', protect, deleteGeneration);

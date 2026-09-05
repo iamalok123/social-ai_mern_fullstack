@@ -36,6 +36,17 @@ const accountSchema = new mongoose.Schema({
         default: "connected"
     },
     avatarUrl: { type: String },
+    loginMethod: {
+        type: String,
+        enum: ["instagram_login", "facebook_login", "standard"],
+        default: "instagram_login"
+    },
+    capabilities: {
+        posting: { type: Boolean, default: true },
+        analytics: { type: Boolean, default: true },
+        catalogAudio: { type: Boolean, default: false },
+        paidPartnership: { type: Boolean, default: false }
+    }
 }, { timestamps: true })
 
 export const Account = mongoose.model("Account", accountSchema)

@@ -7,18 +7,24 @@ export const postValidationMiddleware = (req: AuthRequest, res: Response, next: 
     try {
         const { content, platforms, scheduledFor, firstComment, disableLinkPreview, platformSpecificData } = req.body;
 
-        // 1. Basic field presence checks
-        if (!content || typeof content !== "string" || !content.trim()) {
-            res.status(400).json({ message: "Post content is required." });
-            return;
+        // 1. Parse platformSpecificData early
+        let parsedPlatformSpecificData: Record<string, any> = {};
+        if (platformSpecificData) {
+            try {
+                parsedPlatformSpecificData = typeof platformSpecificData === "string"
+                    ? JSON.parse(platformSpecificData)
+                    : platformSpecificData;
+            } catch {
+                parsedPlatformSpecificData = {};
+            }
         }
 
+        // 2. Parse platforms
         if (!platforms) {
             res.status(400).json({ message: "At least one platform must be selected." });
             return;
         }
 
-        // 2. Parse platforms
         let parsedPlatforms: string[] = [];
         if (typeof platforms === "string") {
             try {
@@ -45,6 +51,22 @@ export const postValidationMiddleware = (req: AuthRequest, res: Response, next: 
                 return;
             }
         }
+
+        // 3. Content check (Story posts do not show captions on Instagram)
+        const isInstagramStoryOnly =
+            parsedPlatforms.length === 1 &&
+            parsedPlatforms[0] === "instagram" &&
+            (parsedPlatformSpecificData?.instagram?.contentType === "story" || parsedPlatformSpecificData?.contentType === "story");
+
+        const normalizedContent = typeof content === "string" ? content.trim() : "";
+
+        if (!isInstagramStoryOnly && !normalizedContent) {
+            res.status(400).json({ message: "Post content is required." });
+            return;
+        }
+
+        // If story only and content is omitted, default to empty string
+        req.body.content = normalizedContent;
 
         if (!scheduledFor) {
             res.status(400).json({ message: "Scheduled date and time are required." });
@@ -81,18 +103,6 @@ export const postValidationMiddleware = (req: AuthRequest, res: Response, next: 
             }
         } else if (req.body.mediaUrl) {
             parsedMediaUrls.push(req.body.mediaUrl);
-        }
-
-        // 4. Parse platformSpecificData
-        let parsedPlatformSpecificData: Record<string, any> = {};
-        if (platformSpecificData) {
-            try {
-                parsedPlatformSpecificData = typeof platformSpecificData === "string"
-                    ? JSON.parse(platformSpecificData)
-                    : platformSpecificData;
-            } catch {
-                parsedPlatformSpecificData = {};
-            }
         }
 
         const parsedDisableLinkPreview = disableLinkPreview === true || disableLinkPreview === "true";

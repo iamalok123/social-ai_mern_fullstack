@@ -109,6 +109,23 @@ const AccountList = ({ accounts, connecting, onConnect, onDisconnect }: AccountL
                                             Connected
                                         </span>
                                     )}
+                                    {row.isConnected && row.platformId === "instagram" && (
+                                        row.account?.loginMethod === "facebook_login" ? (
+                                            <span
+                                                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-blue-200/60 dark:border-blue-900/60 shrink-0"
+                                                title="Supports Catalog Audio and Branded Partnerships"
+                                            >
+                                                ⚡ Facebook Connected
+                                            </span>
+                                        ) : (
+                                            <span
+                                                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 border border-orange-200/60 dark:border-orange-900/60 shrink-0"
+                                                title="Direct Instagram Login"
+                                            >
+                                                📸 Direct Login
+                                            </span>
+                                        )
+                                    )}
                                     {row.isDisconnected && (
                                         <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200/60 dark:border-amber-900/60 shrink-0">
                                             <AlertTriangleIcon className="size-3" />

@@ -5,6 +5,7 @@ import { Generation } from "../models/Generation.js";
 import { Post } from "../models/Post.js";
 import { SocialPlatformRegistry } from "../services/social/core/SocialPlatformRegistry.js";
 import { MediaItem } from "../services/social/core/types.js";
+import zernio from "../config/zernio.js";
 
 /**
  * Helper to extract Cloudinary public_id from a secure_url
@@ -192,5 +193,35 @@ export const deletePost = async (req: AuthRequest, res: Response): Promise<void>
     } catch (error: any) {
         console.error("Delete Post Error:", error);
         res.status(500).json({ message: error?.message || "Failed to delete scheduled post" });
+    }
+};
+
+// Get post analytics
+// GET /api/posts/:id/analytics
+export const getPostAnalytics = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const post = await Post.findOne({ _id: req.params.id, user: req.user._id });
+        if (!post) {
+            res.status(404).json({ message: "Post not found" });
+            return;
+        }
+
+        const platform = (req.query.platform as string) || (post.platforms?.[0] as string) || "instagram";
+        const externalId = (post.platformDetails as any)?.[platform]?.publishedPostId || (post as any).publishedPostId;
+        if (!externalId) {
+            res.status(400).json({ message: `Post has not been published to ${platform} or lacks an external ID` });
+            return;
+        }
+
+        const result = await zernio.analytics.getAnalytics({
+            query: {
+                platform,
+                postId: externalId
+            } as any
+        });
+
+        res.json((result.data as any) || result);
+    } catch (error: any) {
+        res.status(500).json({ message: error?.response?.data?.message || error?.message || "Failed to fetch post analytics" });
     }
 };

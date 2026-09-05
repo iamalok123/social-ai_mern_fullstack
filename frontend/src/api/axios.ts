@@ -11,7 +11,8 @@ export const API_PATHS = {
     },
 
     OAUTH: {
-        GET_CONNECT_URL: (platform: string) => `/api/oauth/${platform}/url`,
+        GET_CONNECT_URL: (platform: string, loginMethod?: string) =>
+            loginMethod ? `/api/oauth/${platform}/url?loginMethod=${encodeURIComponent(loginMethod)}` : `/api/oauth/${platform}/url`,
         SYNC: "/api/oauth/sync",
     },
 
@@ -19,12 +20,21 @@ export const API_PATHS = {
         GET_ALL: "/api/accounts",
         CREATE: "/api/accounts",
         DELETE: (id: string) => `/api/accounts/${id}`,
+        HEALTH: (id: string) => `/api/accounts/${id}/health`,
+        INSTAGRAM_AUDIO_SEARCH: (q: string, accountId?: string) =>
+            `/api/accounts/instagram/audio/search?q=${encodeURIComponent(q)}${accountId ? `&accountId=${accountId}` : ""}`,
+        INSTAGRAM_AUDIO_ITEM: (audioId: string, accountId?: string) =>
+            `/api/accounts/instagram/audio/${encodeURIComponent(audioId)}${accountId ? `?accountId=${accountId}` : ""}`,
+        INSTAGRAM_STORIES: (id: string) => `/api/accounts/${id}/instagram/stories`,
+        INSTAGRAM_STORY_INSIGHTS: (id: string, storyId: string) =>
+            `/api/accounts/${id}/instagram/stories/${storyId}/insights`,
     },
 
     POSTS: {
         GET_ALL: "/api/posts",
         SCHEDULE: "/api/posts",
         DELETE: (id: string) => `/api/posts/${id}`,
+        ANALYTICS: (id: string) => `/api/posts/${id}/analytics`,
         GENERATE: "/api/posts/generate",
         GET_GENERATIONS: "/api/posts/generations",
         DELETE_GENERATION: (id: string) => `/api/posts/generations/${id}`,
