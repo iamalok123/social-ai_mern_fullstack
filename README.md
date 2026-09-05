@@ -127,7 +127,7 @@ VITE_GOOGLE_CLIENT_ID=your_google_client_id
 ## 🌐 Deployment Notes
 
 - **Frontend**: Deploy `frontend/` on **Vercel** with Vite preset. Set `VITE_BACKEND_URL` and `VITE_GOOGLE_CLIENT_ID`.
-- **Backend**: Deploy `backend/` on **Render** or **Railway** for continuous background cron support (`npm run build` and `npm start`).
+- **Backend**: Deploy `backend/` on **Render** or **Railway** (Root Directory: `backend`, Build Command: `npm install && npm run build`, Start Command: `npm start`). Auto-build via `postinstall` is configured.
 
 ---
 
