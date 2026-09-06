@@ -138,6 +138,11 @@ const Scheduler = () => {
     const [isFacebookCollapsed, setIsFacebookCollapsed] = useState(false);
     const [isInstagramCollapsed, setIsInstagramCollapsed] = useState(false);
 
+    // Platform icons from PLATFORMS
+    const LinkedinIcon = PLATFORMS.find((p) => p.id === "linkedin")?.icon;
+    const FacebookIcon = PLATFORMS.find((p) => p.id === "facebook")?.icon;
+    const InstagramIcon = PLATFORMS.find((p) => p.id === "instagram")?.icon;
+
     // Reset active preview index if it goes out of range
     useEffect(() => {
         if (activePreviewIndex >= selectedPlatforms.length && selectedPlatforms.length > 0) {
@@ -1224,7 +1229,9 @@ const Scheduler = () => {
                                     <div className={`p-4 rounded-2xl bg-slate-50/90 dark:bg-zinc-900/60 border border-sky-200/80 dark:border-sky-950/80 shadow-2xs animate-in fade-in transition-all duration-200 ${isLinkedinCollapsed ? "" : "space-y-3.5"}`}>
                                         <div className={`flex items-center justify-between gap-2 ${isLinkedinCollapsed ? "" : "border-b border-slate-200/70 dark:border-zinc-800/70 pb-2.5"}`}>
                                             <div className="flex items-center gap-2">
-                                                <span className="px-1.5 py-0.5 rounded-md bg-[#0a66c2] text-white text-[10px] font-bold">in</span>
+                                                <span className="size-5 rounded-md bg-[#0a66c2] text-white flex items-center justify-center shadow-2xs shrink-0">
+                                                    {LinkedinIcon && <LinkedinIcon className="size-3 text-white" />}
+                                                </span>
                                                 <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider">
                                                     LinkedIn Growth Features
                                                 </span>
@@ -1315,7 +1322,9 @@ const Scheduler = () => {
                                     <div className={`p-4 rounded-2xl bg-slate-50/90 dark:bg-zinc-900/60 border border-blue-200/80 dark:border-blue-950/80 shadow-2xs animate-in fade-in transition-all duration-200 ${isFacebookCollapsed ? "" : "space-y-3.5"}`}>
                                         <div className={`flex items-center justify-between gap-2 ${isFacebookCollapsed ? "" : "border-b border-slate-200/70 dark:border-zinc-800/70 pb-2.5"}`}>
                                             <div className="flex items-center gap-2">
-                                                <span className="px-2 py-0.5 rounded-md bg-[#1877F2] text-white text-[10px] font-bold">f</span>
+                                                <span className="size-5 rounded-md bg-[#1877F2] text-white flex items-center justify-center shadow-2xs shrink-0">
+                                                    {FacebookIcon && <FacebookIcon className="size-3 text-white" />}
+                                                </span>
                                                 <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider">
                                                     Facebook Page Options
                                                 </span>
@@ -1471,8 +1480,8 @@ const Scheduler = () => {
                                     <div className={`p-4 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/40 shadow-2xs animate-in fade-in transition-all duration-200 ${isInstagramCollapsed ? "" : "space-y-3.5"}`}>
                                         <div className={`flex items-center justify-between gap-2 ${isInstagramCollapsed ? "" : "pb-2 border-b border-slate-200/60 dark:border-zinc-800/60"}`}>
                                             <div className="flex items-center gap-2">
-                                                <span className="w-5 h-5 rounded-lg bg-linear-to-tr from-amber-500 via-rose-500 to-purple-600 flex items-center justify-center text-white text-[10px] font-bold shadow-2xs">
-                                                    ig
+                                                <span className="size-5 rounded-md bg-linear-to-tr from-amber-500 via-rose-500 to-purple-600 flex items-center justify-center text-white shadow-2xs shrink-0">
+                                                    {InstagramIcon && <InstagramIcon className="size-3 text-white" />}
                                                 </span>
                                                 <span className="text-xs font-bold text-slate-800 dark:text-zinc-200 uppercase tracking-wider">
                                                     Instagram Options
