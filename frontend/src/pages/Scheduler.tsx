@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useLocation } from "react-router-dom";
 import { PLATFORMS } from "../assets/assets";
 import { useAuth } from "../context/AuthContext";
@@ -114,6 +115,16 @@ const Scheduler = () => {
 
     const [activeTab, setActiveTab] = useState<"create" | "history">("create");
     const [posts, setPosts] = useState<any[]>([]);
+    const [headerActionsEl, setHeaderActionsEl] = useState<HTMLElement | null>(() => {
+        return typeof document !== "undefined" ? document.getElementById("header-actions") : null;
+    });
+
+    useEffect(() => {
+        if (!headerActionsEl) {
+            setHeaderActionsEl(document.getElementById("header-actions"));
+        }
+    }, [headerActionsEl]);
+
     const [content, setContent] = useState("");
     const [scheduledDate, setScheduledDate] = useState("");
     const [scheduledTime, setScheduledTime] = useState("");
@@ -721,36 +732,69 @@ const Scheduler = () => {
 
     return (
         <div className="flex flex-col gap-6 w-full max-w-6xl mx-auto">
-            {/* Toggle Bar */}
-            <div className="flex items-center justify-center border-b border-slate-200 dark:border-zinc-800 pb-4">
-                <div className="flex bg-slate-100 dark:bg-zinc-900/80 p-1.5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab("create")}
-                        className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${activeTab === "create"
-                            ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
-                            : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
-                            }`}
-                    >
-                        <PlusCircleIcon className="size-4" />
-                        Create Post
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setActiveTab("history")}
-                        className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${activeTab === "history"
-                            ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
-                            : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
-                            }`}
-                    >
-                        <HistoryIcon className="size-4" />
-                        Post History
-                        <span className="ml-1 text-xs px-2.5 py-0.5 rounded-full bg-slate-200 dark:bg-zinc-700/60 text-slate-700 dark:text-zinc-300 font-bold">
-                            {posts.length}
-                        </span>
-                    </button>
+            {/* Header Portal for Toggle Buttons */}
+            {headerActionsEl ? (
+                createPortal(
+                    <div className="flex bg-slate-100 dark:bg-zinc-900/80 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("create")}
+                            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeTab === "create"
+                                ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
+                                : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                                }`}
+                        >
+                            <PlusCircleIcon className="size-3.5 sm:size-4" />
+                            Create Post
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("history")}
+                            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeTab === "history"
+                                ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
+                                : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                                }`}
+                        >
+                            <HistoryIcon className="size-3.5 sm:size-4" />
+                            Post History
+                            <span className="ml-1 text-[11px] sm:text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-zinc-700/60 text-slate-700 dark:text-zinc-300 font-bold">
+                                {posts.length}
+                            </span>
+                        </button>
+                    </div>,
+                    headerActionsEl
+                )
+            ) : (
+                <div className="flex items-center justify-end pb-2">
+                    <div className="flex bg-slate-100 dark:bg-zinc-900/80 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-xs">
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("create")}
+                            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeTab === "create"
+                                ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
+                                : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                                }`}
+                        >
+                            <PlusCircleIcon className="size-3.5 sm:size-4" />
+                            Create Post
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab("history")}
+                            className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer ${activeTab === "history"
+                                ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
+                                : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                                }`}
+                        >
+                            <HistoryIcon className="size-3.5 sm:size-4" />
+                            Post History
+                            <span className="ml-1 text-[11px] sm:text-xs px-2 py-0.5 rounded-full bg-slate-200 dark:bg-zinc-700/60 text-slate-700 dark:text-zinc-300 font-bold">
+                                {posts.length}
+                            </span>
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* TAB 1: CREATE POST */}
             {activeTab === "create" && (

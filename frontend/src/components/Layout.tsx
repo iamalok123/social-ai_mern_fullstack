@@ -66,6 +66,7 @@ const Layout = () => {
                             </p>
                         </div>
                     </div>
+                    <div id="header-actions" className="flex items-center gap-2" />
                 </header>
 
                 <main className="flex-1 overflow-auto p-4 sm:p-6 md:p-6 xl:p-6 bg-slate-100 dark:bg-black text-slate-900 dark:text-zinc-100 transition-colors">

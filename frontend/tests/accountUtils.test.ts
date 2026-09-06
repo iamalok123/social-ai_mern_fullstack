@@ -11,7 +11,7 @@ describe("Account Utilities Suite", () => {
                 capabilities: { posting: true, analytics: true }
             };
             const result = getInstagramBadgeInfo(account);
-            assert.strictEqual(result.badgeText, "📸 Direct Login");
+            assert.strictEqual(result.badgeText, "Direct Login");
             assert.strictEqual(result.isFacebookLogin, false);
             assert.strictEqual(result.tooltip, "Connected via Direct Instagram Login");
         });
@@ -23,7 +23,7 @@ describe("Account Utilities Suite", () => {
                 capabilities: { posting: true, analytics: true, catalogAudio: true, paidPartnership: true }
             };
             const result = getInstagramBadgeInfo(account);
-            assert.strictEqual(result.badgeText, "⚡ Facebook Login");
+            assert.strictEqual(result.badgeText, "Facebook Login");
             assert.strictEqual(result.isFacebookLogin, true);
             assert.ok(result.tooltip.includes("Facebook Page Login"));
         });
@@ -38,18 +38,18 @@ describe("Account Utilities Suite", () => {
                 }
             };
             const result = getInstagramBadgeInfo(account);
-            assert.strictEqual(result.badgeText, "⚡ Facebook Login");
+            assert.strictEqual(result.badgeText, "Facebook Login");
             assert.strictEqual(result.isFacebookLogin, true);
             assert.ok(result.tooltip.includes("PremReel"));
         });
 
         it("handles undefined or empty account gracefully by defaulting to direct login", () => {
             const resultUndefined = getInstagramBadgeInfo(undefined);
-            assert.strictEqual(resultUndefined.badgeText, "📸 Direct Login");
+            assert.strictEqual(resultUndefined.badgeText, "Direct Login");
             assert.strictEqual(resultUndefined.isFacebookLogin, false);
 
             const resultEmpty = getInstagramBadgeInfo({});
-            assert.strictEqual(resultEmpty.badgeText, "📸 Direct Login");
+            assert.strictEqual(resultEmpty.badgeText, "Direct Login");
             assert.strictEqual(resultEmpty.isFacebookLogin, false);
         });
     });
