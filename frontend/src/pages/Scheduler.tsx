@@ -9,6 +9,7 @@ import InstagramPostPreview from "../components/Media/Instagram";
 import InstagramAudioModal, { type SelectedAudioConfig } from "../components/Media/InstagramAudioModal";
 import MediaManagerModal from "../components/Media/MediaManagerModal";
 import { calculateTwitterLength, getMediaUploaderHint, getActivePlatformDisplayName } from "../utils/schedulerUtils";
+import { getInstagramBadgeInfo } from "../utils/accountUtils";
 import {
     ArrowRightIcon,
     CalendarDaysIcon,
@@ -281,16 +282,16 @@ const Scheduler = () => {
             const diffMs = target.getTime() - now.getTime();
 
             if (diffMs <= 0) return "Due for publishing";
-            
+
             const diffMins = Math.round(diffMs / 60000);
             if (diffMins < 60) return `in ${diffMins} min${diffMins !== 1 ? 's' : ''}`;
-            
+
             const diffHours = Math.floor(diffMins / 60);
             const remainingMins = diffMins % 60;
             if (diffHours < 24) {
                 return remainingMins > 0 ? `in ${diffHours}h ${remainingMins}m` : `in ${diffHours} hr${diffHours !== 1 ? 's' : ''}`;
             }
-            
+
             const diffDays = Math.floor(diffHours / 24);
             return `in ${diffDays} day${diffDays !== 1 ? 's' : ''}`;
         } catch {
@@ -319,7 +320,7 @@ const Scheduler = () => {
     const getFilteredPosts = (list: any[]) => {
         if (!historySearch.trim()) return list;
         const query = historySearch.toLowerCase();
-        return list.filter((p) => 
+        return list.filter((p) =>
             p.content?.toLowerCase().includes(query) ||
             p.platforms?.some((pl: string) => pl.toLowerCase().includes(query))
         );
@@ -331,11 +332,11 @@ const Scheduler = () => {
         ...existingMediaUrls
     ];
 
-    const hasVideo = mediaFiles.some(f => f.type.startsWith("video/")) || 
-                     existingMediaUrls.some(u => /\.(mp4|webm|mov|mkv|ogg)$/i.test(u) || u.includes("/video/upload/"));
+    const hasVideo = mediaFiles.some(f => f.type.startsWith("video/")) ||
+        existingMediaUrls.some(u => /\.(mp4|webm|mov|mkv|ogg)$/i.test(u) || u.includes("/video/upload/"));
 
-    const activeMediaType: "image" | "video" | null = allPreviewMediaUrls.length === 0 
-        ? null 
+    const activeMediaType: "image" | "video" | null = allPreviewMediaUrls.length === 0
+        ? null
         : (hasVideo ? "video" : "image");
 
     const previewMediaUrl = allPreviewMediaUrls.length > 0 ? allPreviewMediaUrls[0] : null;
@@ -347,7 +348,8 @@ const Scheduler = () => {
     const maxAllowedImages = isTwitterSelected ? 4 : (isFacebookSelected || isInstagramSelected ? 10 : 20);
 
     const connectedInstagramAccount = connectedAccounts.find((a) => a.platform === "instagram");
-    const isInstagramViaFacebook = connectedInstagramAccount?.loginMethod === "facebook_login";
+    const instagramBadge = getInstagramBadgeInfo(connectedInstagramAccount);
+    const isInstagramViaFacebook = instagramBadge.isFacebookLogin;
 
     const mediaUploaderHint = getMediaUploaderHint(
         selectedPlatforms,
@@ -726,8 +728,8 @@ const Scheduler = () => {
                         type="button"
                         onClick={() => setActiveTab("create")}
                         className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${activeTab === "create"
-                                ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
-                                : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                            ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
+                            : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
                             }`}
                     >
                         <PlusCircleIcon className="size-4" />
@@ -737,8 +739,8 @@ const Scheduler = () => {
                         type="button"
                         onClick={() => setActiveTab("history")}
                         className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer ${activeTab === "history"
-                                ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
-                                : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
+                            ? "bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs"
+                            : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"
                             }`}
                     >
                         <HistoryIcon className="size-4" />
@@ -773,11 +775,10 @@ const Scheduler = () => {
                                                 type="button"
                                                 title={p.name || p.id}
                                                 onClick={() => togglePlatform(p.id)}
-                                                className={`p-2 rounded-xl border transition-all duration-150 cursor-pointer flex items-center justify-center ${
-                                                    active
+                                                className={`p-2 rounded-xl border transition-all duration-150 cursor-pointer flex items-center justify-center ${active
                                                         ? "bg-red-50 dark:bg-red-950/50 border-red-300 dark:border-red-800 text-red-500 dark:text-red-400 scale-105 shadow-xs"
                                                         : "border-slate-200 dark:border-zinc-800 text-slate-400 dark:text-zinc-500 hover:border-slate-300 dark:hover:border-zinc-700 bg-white dark:bg-zinc-900 hover:text-slate-700 dark:hover:text-zinc-300"
-                                                }`}
+                                                    }`}
                                             >
                                                 <p.icon className="size-4" />
                                             </button>
@@ -824,13 +825,12 @@ const Scheduler = () => {
                                                             </span>
                                                         )}
                                                         <span
-                                                            className={`text-xs font-bold px-2 py-0.5 rounded-md border transition-colors ${
-                                                                calculateTwitterLength(content) > 280
+                                                            className={`text-xs font-bold px-2 py-0.5 rounded-md border transition-colors ${calculateTwitterLength(content) > 280
                                                                     ? "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-800 animate-pulse"
                                                                     : calculateTwitterLength(content) > 250
-                                                                    ? "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800"
-                                                                    : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700"
-                                                            }`}
+                                                                        ? "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800"
+                                                                        : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700"
+                                                                }`}
                                                             title={selectedPlatforms.includes("linkedin") ? "Twitter limit (280) applies because Twitter is selected alongside LinkedIn" : "Twitter/X weighted character count"}
                                                         >
                                                             𝕏 {calculateTwitterLength(content)}/280
@@ -838,26 +838,24 @@ const Scheduler = () => {
                                                     </div>
                                                 ) : selectedPlatforms.includes("linkedin") ? (
                                                     <span
-                                                        className={`text-xs font-bold px-2 py-0.5 rounded-md border transition-colors ${
-                                                            content.length > 3000
+                                                        className={`text-xs font-bold px-2 py-0.5 rounded-md border transition-colors ${content.length > 3000
                                                                 ? "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-800 animate-pulse"
                                                                 : content.length > 2800
-                                                                ? "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800"
-                                                                : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700"
-                                                        }`}
+                                                                    ? "bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800"
+                                                                    : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700"
+                                                            }`}
                                                         title="LinkedIn supports up to 3,000 characters for both free and premium accounts"
                                                     >
                                                         in {content.length}/3,000
                                                     </span>
                                                 ) : selectedPlatforms.includes("facebook") ? (
                                                     <span
-                                                        className={`text-xs font-bold px-2 py-0.5 rounded-md border transition-colors ${
-                                                            content.length > 63206
+                                                        className={`text-xs font-bold px-2 py-0.5 rounded-md border transition-colors ${content.length > 63206
                                                                 ? "bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-800 animate-pulse"
                                                                 : content.length > 480
-                                                                ? "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800"
-                                                                : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700"
-                                                        }`}
+                                                                    ? "bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800"
+                                                                    : "bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 border-slate-200 dark:border-zinc-700"
+                                                            }`}
                                                         title="Facebook limit: 63,206 chars (truncated at ~480 with 'See more')"
                                                     >
                                                         f {content.length > 480 ? `${content.length} (truncates at ~480)` : `${content.length}/63k`}
@@ -893,12 +891,11 @@ const Scheduler = () => {
                                         <textarea
                                             required
                                             placeholder="What do you want to share today?"
-                                            className={`w-full h-56 md:h-64 px-4 py-3 bg-slate-50 dark:bg-zinc-900/60 border rounded-xl text-slate-900 dark:text-white text-sm placeholder-slate-400 dark:placeholder-zinc-500 outline-none resize-none transition-colors overflow-y-auto leading-relaxed ${
-                                                (selectedPlatforms.includes("twitter") && calculateTwitterLength(content) > 280) ||
-                                                (selectedPlatforms.includes("linkedin") && content.length > 3000)
+                                            className={`w-full h-56 md:h-64 px-4 py-3 bg-slate-50 dark:bg-zinc-900/60 border rounded-xl text-slate-900 dark:text-white text-sm placeholder-slate-400 dark:placeholder-zinc-500 outline-none resize-none transition-colors overflow-y-auto leading-relaxed ${(selectedPlatforms.includes("twitter") && calculateTwitterLength(content) > 280) ||
+                                                    (selectedPlatforms.includes("linkedin") && content.length > 3000)
                                                     ? "border-rose-400 dark:border-rose-600 focus:border-rose-500"
                                                     : "border-slate-200 dark:border-zinc-800 focus:border-red-400 dark:focus:border-red-500/50"
-                                            }`}
+                                                }`}
                                             value={content}
                                             onChange={(e) => setContent(e.target.value)}
                                         />
@@ -964,15 +961,14 @@ const Scheduler = () => {
                                                             </button>
                                                         </div>
                                                     ) : allPreviewMediaUrls.length <= 4 ? (
-                                                        <div className={`gap-2 h-44 p-0.5 ${
-                                                            allPreviewMediaUrls.length === 1
+                                                        <div className={`gap-2 h-44 p-0.5 ${allPreviewMediaUrls.length === 1
                                                                 ? "flex items-center justify-center"
                                                                 : allPreviewMediaUrls.length === 2
-                                                                ? "grid grid-cols-2"
-                                                                : allPreviewMediaUrls.length === 3
-                                                                ? "grid grid-cols-3"
-                                                                : "grid grid-cols-2"
-                                                        }`}>
+                                                                    ? "grid grid-cols-2"
+                                                                    : allPreviewMediaUrls.length === 3
+                                                                        ? "grid grid-cols-3"
+                                                                        : "grid grid-cols-2"
+                                                            }`}>
                                                             {allPreviewMediaUrls.map((url, i) => {
                                                                 const isUploadedFile = i < mediaFiles.length;
                                                                 const fileName = isUploadedFile ? mediaFiles[i].name : `Image ${i + 1}`;
@@ -983,7 +979,7 @@ const Scheduler = () => {
                                                                         className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-900 shadow-xs aspect-video w-full h-full"
                                                                     >
                                                                         <img src={url} alt="" className="w-full h-full object-cover" />
-                                                                        
+
                                                                         {/* Number Tag */}
                                                                         <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-xs text-[9px] font-mono text-white">
                                                                             #{i + 1}
@@ -1023,7 +1019,7 @@ const Scheduler = () => {
                                                                         className="relative group rounded-xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-900 shadow-xs aspect-video w-full h-full"
                                                                     >
                                                                         <img src={url} alt="" className="w-full h-full object-cover" />
-                                                                        
+
                                                                         {/* Number Tag */}
                                                                         <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded-md bg-black/70 backdrop-blur-xs text-[9px] font-mono text-white">
                                                                             #{i + 1}
@@ -1124,11 +1120,10 @@ const Scheduler = () => {
                                                     onDragLeave={handleDragLeave}
                                                     onDrop={handleDrop}
                                                 >
-                                                    <label className={`flex-1 flex flex-col items-center justify-center gap-2 py-6 px-4 border-2 border-dashed rounded-2xl cursor-pointer transition-all group min-h-44 ${
-                                                        isDragging
+                                                    <label className={`flex-1 flex flex-col items-center justify-center gap-2 py-6 px-4 border-2 border-dashed rounded-2xl cursor-pointer transition-all group min-h-44 ${isDragging
                                                             ? "border-red-500 bg-red-50/50 dark:bg-red-950/30 scale-[1.01]"
                                                             : "border-slate-200 dark:border-zinc-800 hover:border-red-400 dark:hover:border-red-700/60 hover:bg-red-50/20 dark:hover:bg-red-950/10"
-                                                    }`}>
+                                                        }`}>
                                                         <div className="p-2.5 rounded-full bg-slate-100 dark:bg-zinc-900 group-hover:bg-red-100 dark:group-hover:bg-red-950/50 transition-colors border border-slate-200/60 dark:border-zinc-800">
                                                             <UploadCloudIcon className="size-5 text-slate-400 group-hover:text-red-500 transition-colors" />
                                                         </div>
@@ -1279,11 +1274,10 @@ const Scheduler = () => {
                                                         key={fmt.id}
                                                         type="button"
                                                         onClick={() => setFacebookContentType(fmt.id as any)}
-                                                        className={`px-3 py-2 rounded-xl text-left border transition-all cursor-pointer ${
-                                                            facebookContentType === fmt.id
+                                                        className={`px-3 py-2 rounded-xl text-left border transition-all cursor-pointer ${facebookContentType === fmt.id
                                                                 ? "bg-blue-50 dark:bg-blue-950/50 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-100 shadow-2xs"
                                                                 : "bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700"
-                                                        }`}
+                                                            }`}
                                                     >
                                                         <div className="text-xs font-bold">{fmt.label}</div>
                                                         <div className="text-[10px] text-slate-500 dark:text-zinc-400">{fmt.desc}</div>
@@ -1356,11 +1350,10 @@ const Scheduler = () => {
                                                             key={preset.id}
                                                             type="button"
                                                             onClick={() => setFacebookTextPreset(preset.id)}
-                                                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer ${
-                                                                facebookTextPreset === preset.id
+                                                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all cursor-pointer ${facebookTextPreset === preset.id
                                                                     ? "border-blue-500 dark:border-blue-400 ring-2 ring-blue-500/20 shadow-xs"
                                                                     : "border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
-                                                            }`}
+                                                                }`}
                                                         >
                                                             <span className={`size-3 rounded-full ${preset.bg} shrink-0`} />
                                                             <span className="text-slate-700 dark:text-zinc-300 text-[11px]">{preset.name}</span>
@@ -1404,14 +1397,13 @@ const Scheduler = () => {
                                                     Instagram Options
                                                 </span>
                                             </div>
-                                            {/* Connection Method Status Badge */}
-                                            {connectedInstagramAccount?.loginMethod === "facebook_login" ? (
+                                            {isInstagramViaFacebook ? (
                                                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-900/60 flex items-center gap-1">
-                                                    <ZapIcon className="size-2.5" /> Facebook Connected (Full Tools)
+                                                    <ZapIcon className="size-2.5" /> Facebook Login (Full Tools)
                                                 </span>
                                             ) : (
-                                                <span className="text-[10px] font-medium text-slate-500 dark:text-zinc-400">
-                                                    Direct Login Active
+                                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 border border-orange-200/60 dark:border-orange-900/60">
+                                                    📸 Direct Login
                                                 </span>
                                             )}
                                         </div>
@@ -1431,11 +1423,10 @@ const Scheduler = () => {
                                                         key={fmt.id}
                                                         type="button"
                                                         onClick={() => setInstagramContentType(fmt.id as any)}
-                                                        className={`px-3 py-2 rounded-xl text-left border transition-all cursor-pointer ${
-                                                            instagramContentType === fmt.id
+                                                        className={`px-3 py-2 rounded-xl text-left border transition-all cursor-pointer ${instagramContentType === fmt.id
                                                                 ? "bg-pink-50 dark:bg-pink-950/50 border-pink-400 dark:border-pink-600 text-pink-900 dark:text-pink-100 shadow-2xs"
                                                                 : "bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-700 dark:text-zinc-300 hover:border-slate-300 dark:hover:border-zinc-700"
-                                                        }`}
+                                                            }`}
                                                     >
                                                         <div className="text-xs font-bold">{fmt.label}</div>
                                                         <div className="text-[10px] text-slate-500 dark:text-zinc-400">{fmt.desc}</div>
@@ -1785,11 +1776,10 @@ const Scheduler = () => {
                                                 key={pId}
                                                 type="button"
                                                 onClick={() => setActivePreviewIndex(idx)}
-                                                className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border ${
-                                                    isActive
+                                                className={`flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-semibold transition-all cursor-pointer border ${isActive
                                                         ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-zinc-900 dark:border-white shadow-xs"
                                                         : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
-                                                }`}
+                                                    }`}
                                             >
                                                 {Icon && <Icon className="size-3" />}
                                                 <span>{pMeta?.name || pId}</span>
@@ -1865,11 +1855,10 @@ const Scheduler = () => {
                             <button
                                 type="button"
                                 onClick={() => setHistoryFilter("all")}
-                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${
-                                    historyFilter === "all"
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border ${historyFilter === "all"
                                         ? "bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-zinc-900 dark:border-white shadow-2xs"
                                         : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700"
-                                }`}
+                                    }`}
                             >
                                 All Posts
                                 <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-zinc-700 text-slate-800 dark:text-zinc-200">
@@ -1880,11 +1869,10 @@ const Scheduler = () => {
                             <button
                                 type="button"
                                 onClick={() => setHistoryFilter("scheduled")}
-                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border flex items-center gap-1.5 ${
-                                    historyFilter === "scheduled"
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border flex items-center gap-1.5 ${historyFilter === "scheduled"
                                         ? "bg-amber-500 text-white border-amber-500 shadow-2xs"
                                         : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-amber-300 dark:hover:border-amber-800/60"
-                                }`}
+                                    }`}
                             >
                                 <ClockIcon className="size-3" />
                                 Upcoming
@@ -1896,11 +1884,10 @@ const Scheduler = () => {
                             <button
                                 type="button"
                                 onClick={() => setHistoryFilter("published")}
-                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border flex items-center gap-1.5 ${
-                                    historyFilter === "published"
+                                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border flex items-center gap-1.5 ${historyFilter === "published"
                                         ? "bg-emerald-600 text-white border-emerald-600 shadow-2xs"
                                         : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-emerald-300 dark:hover:border-emerald-800/60"
-                                }`}
+                                    }`}
                             >
                                 <SendIcon className="size-3" />
                                 Published
@@ -1913,11 +1900,10 @@ const Scheduler = () => {
                                 <button
                                     type="button"
                                     onClick={() => setHistoryFilter("failed")}
-                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border flex items-center gap-1.5 ${
-                                        historyFilter === "failed"
+                                    className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer border flex items-center gap-1.5 ${historyFilter === "failed"
                                             ? "bg-rose-600 text-white border-rose-600 shadow-2xs"
                                             : "bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-rose-300"
-                                    }`}
+                                        }`}
                                 >
                                     <AlertCircleIcon className="size-3" />
                                     Failed
@@ -2238,11 +2224,10 @@ const Scheduler = () => {
                                         return (
                                             <div
                                                 key={post._id}
-                                                className={`group relative bg-slate-50/60 dark:bg-zinc-900/60 hover:bg-white dark:hover:bg-zinc-900 p-4 rounded-2xl transition-all duration-150 border shadow-2xs hover:shadow-xs flex flex-col gap-3 ${
-                                                    post.status === "failed" 
-                                                        ? "border-rose-200 dark:border-rose-900/60 hover:border-rose-400 dark:hover:border-rose-600" 
+                                                className={`group relative bg-slate-50/60 dark:bg-zinc-900/60 hover:bg-white dark:hover:bg-zinc-900 p-4 rounded-2xl transition-all duration-150 border shadow-2xs hover:shadow-xs flex flex-col gap-3 ${post.status === "failed"
+                                                        ? "border-rose-200 dark:border-rose-900/60 hover:border-rose-400 dark:hover:border-rose-600"
                                                         : "border-slate-200/80 dark:border-zinc-800"
-                                                }`}
+                                                    }`}
                                             >
                                                 {/* Top Row */}
                                                 <div className="flex items-center justify-between gap-2">
@@ -2253,9 +2238,9 @@ const Scheduler = () => {
                                                             const Icon = meta.icon;
                                                             return (
                                                                 <span
-                                                                  key={pl}
-                                                                  title={meta.name || pl}
-                                                                  className="p-1 rounded-lg bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 shadow-2xs inline-flex items-center justify-center"
+                                                                    key={pl}
+                                                                    title={meta.name || pl}
+                                                                    className="p-1 rounded-lg bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 shadow-2xs inline-flex items-center justify-center"
                                                                 >
                                                                     <Icon className="size-3.5" />
                                                                 </span>
@@ -2456,11 +2441,11 @@ const Scheduler = () => {
 
             {/* MEDIA LIGHTBOX PREVIEW MODAL */}
             {previewModalMedia && (
-                <div 
+                <div
                     className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-150"
                     onClick={() => setPreviewModalMedia(null)}
                 >
-                    <div 
+                    <div
                         className="relative max-w-3xl max-h-[85vh] w-full flex flex-col items-center justify-center rounded-2xl overflow-hidden bg-black border border-white/10 shadow-2xl"
                         onClick={(e) => e.stopPropagation()}
                     >
@@ -2472,7 +2457,7 @@ const Scheduler = () => {
                         >
                             <XIcon className="size-4" />
                         </button>
-                        
+
                         {previewModalMedia.type === "video" || /\.(mp4|webm|mov|mkv|ogg)$/i.test(previewModalMedia.url) || previewModalMedia.url.includes("/video/upload/") ? (
                             <video
                                 src={previewModalMedia.url}

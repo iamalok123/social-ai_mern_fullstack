@@ -93,7 +93,7 @@ export const getAccountHealth = async (req: AuthRequest, res: Response): Promise
 export const searchInstagramAudio = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const targetId = req.params.id || (req.query.accountId as string);
-        const query: any = { user: req.user._id, platform: "instagram", isConnected: true };
+        const query: any = { user: req.user._id, platform: "instagram", status: "connected" };
         if (targetId && targetId !== "search" && targetId !== "instagram") {
             query._id = targetId;
         }
@@ -131,7 +131,7 @@ export const searchInstagramAudio = async (req: AuthRequest, res: Response): Pro
 export const getInstagramAudioItem = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const targetId = req.params.id || (req.query.accountId as string);
-        const query: any = { user: req.user._id, platform: "instagram", isConnected: true };
+        const query: any = { user: req.user._id, platform: "instagram", status: "connected" };
         if (targetId && targetId !== "search" && targetId !== "instagram") {
             query._id = targetId;
         }

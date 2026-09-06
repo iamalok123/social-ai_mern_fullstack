@@ -46,6 +46,10 @@ const accountSchema = new mongoose.Schema({
         analytics: { type: Boolean, default: true },
         catalogAudio: { type: Boolean, default: false },
         paidPartnership: { type: Boolean, default: false }
+    },
+    metadata: {
+        type: mongoose.Schema.Types.Mixed,
+        default: {}
     }
 }, { timestamps: true })
 

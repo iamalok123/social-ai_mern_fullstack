@@ -5,6 +5,8 @@ import { postValidationMiddleware } from "../middlewares/postValidationMiddlewar
 import { getAllPlatforms, getPlatformById } from "../controllers/platformController.js";
 import { getPosts, deletePost, getPostAnalytics } from "../controllers/postController.js";
 import { searchInstagramAudio, getAccountHealth } from "../controllers/accountController.js";
+import { generateAuthUrl, syncAccounts } from "../controllers/socialAuthController.js";
+import zernio from "../config/zernio.js";
 import { Post } from "../models/Post.js";
 import { Account } from "../models/Account.js";
 import { SocialPlatformRegistry } from "../services/social/core/SocialPlatformRegistry.js";
@@ -531,6 +533,140 @@ describe("Routes, Controllers & Middlewares Test Suite", () => {
                 assert.strictEqual(responseBody?.message, "Account not found or not connected to Zernio");
             } finally {
                 (Account as any).findOne = originalFindOne;
+            }
+        });
+    });
+
+    describe("socialAuthController: Instagram loginMethod resolution", () => {
+        it("generateAuthUrl: includes loginMethod parameter in redirect URL for Instagram", async () => {
+            const originalGetConnectUrl = zernio.connect.getConnectUrl;
+            let capturedOptions: any = null;
+            (zernio.connect as any).getConnectUrl = async (opts: any) => {
+                capturedOptions = opts;
+                return { data: { authUrl: "https://zernio.com/oauth/mock" } };
+            };
+
+            try {
+                let statusCode = 200;
+                let responseBody: any = null;
+                const req: any = {
+                    params: { platform: "instagram" },
+                    query: { loginMethod: "facebook_login" },
+                    headers: { origin: "http://localhost:5173" },
+                    user: { _id: "user_test_123", zernioProfileId: "prof_123" }
+                };
+                const res: any = {
+                    status: (code: number) => {
+                        statusCode = code;
+                        return { json: (data: any) => { responseBody = data; } };
+                    }
+                };
+
+                await generateAuthUrl(req, res);
+                assert.strictEqual(statusCode, 200);
+                assert.strictEqual(responseBody?.url, "https://zernio.com/oauth/mock");
+                assert.strictEqual(capturedOptions?.query?.loginMethod, "facebook_login");
+                assert.ok(capturedOptions?.query?.redirect_url.includes("loginMethod=facebook_login"));
+            } finally {
+                (zernio.connect as any).getConnectUrl = originalGetConnectUrl;
+            }
+        });
+
+        it("syncAccounts: correctly saves loginMethod as facebook_login and sets capabilities when account has Facebook Page metadata", async () => {
+            const originalListAccounts = zernio.accounts.listAccounts;
+            const originalFindOneAndUpdate = Account.findOneAndUpdate;
+
+            let capturedUpdateDoc: any = null;
+
+            (zernio.accounts as any).listAccounts = async () => ({
+                data: {
+                    accounts: [
+                        {
+                            _id: "z_ig_fb_123",
+                            platform: "instagram",
+                            username: "fb_linked_ig",
+                            profilePicture: "https://example.com/pic.jpg",
+                            metadata: {
+                                loginMethod: "facebook_login",
+                                selectedPageId: "page_999",
+                                selectedPageName: "My Brand Page"
+                            }
+                        }
+                    ]
+                }
+            });
+
+            (Account as any).findOneAndUpdate = async (_filter: any, update: any) => {
+                capturedUpdateDoc = update;
+                return update;
+            };
+
+            try {
+                let responseBody: any = null;
+                const req: any = {
+                    query: {},
+                    user: { _id: "user_test_123", zernioProfileId: "prof_123" }
+                };
+                const res: any = {
+                    json: (data: any) => { responseBody = data; },
+                    status: () => ({ json: (data: any) => { responseBody = data; } })
+                };
+
+                await syncAccounts(req, res);
+                assert.strictEqual(capturedUpdateDoc?.loginMethod, "facebook_login");
+                assert.strictEqual(capturedUpdateDoc?.capabilities?.catalogAudio, true);
+                assert.strictEqual(capturedUpdateDoc?.capabilities?.paidPartnership, true);
+                assert.strictEqual(capturedUpdateDoc?.avatarUrl, "https://example.com/pic.jpg");
+            } finally {
+                (zernio.accounts as any).listAccounts = originalListAccounts;
+                (Account as any).findOneAndUpdate = originalFindOneAndUpdate;
+            }
+        });
+
+        it("syncAccounts: correctly saves loginMethod as instagram_login when direct Instagram login is used", async () => {
+            const originalListAccounts = zernio.accounts.listAccounts;
+            const originalFindOneAndUpdate = Account.findOneAndUpdate;
+
+            let capturedUpdateDoc: any = null;
+
+            (zernio.accounts as any).listAccounts = async () => ({
+                data: {
+                    accounts: [
+                        {
+                            _id: "z_ig_direct_456",
+                            platform: "instagram",
+                            username: "direct_ig",
+                            metadata: {
+                                loginMethod: "instagram_login"
+                            }
+                        }
+                    ]
+                }
+            });
+
+            (Account as any).findOneAndUpdate = async (_filter: any, update: any) => {
+                capturedUpdateDoc = update;
+                return update;
+            };
+
+            try {
+                let responseBody: any = null;
+                const req: any = {
+                    query: {},
+                    user: { _id: "user_test_123", zernioProfileId: "prof_123" }
+                };
+                const res: any = {
+                    json: (data: any) => { responseBody = data; },
+                    status: () => ({ json: (data: any) => { responseBody = data; } })
+                };
+
+                await syncAccounts(req, res);
+                assert.strictEqual(capturedUpdateDoc?.loginMethod, "instagram_login");
+                assert.strictEqual(capturedUpdateDoc?.capabilities?.catalogAudio, false);
+                assert.strictEqual(capturedUpdateDoc?.capabilities?.paidPartnership, false);
+            } finally {
+                (zernio.accounts as any).listAccounts = originalListAccounts;
+                (Account as any).findOneAndUpdate = originalFindOneAndUpdate;
             }
         });
     });

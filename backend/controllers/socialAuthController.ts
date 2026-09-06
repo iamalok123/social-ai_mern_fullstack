@@ -51,18 +51,21 @@ export const generateAuthUrl = async (req: AuthRequest, res: Response): Promise<
         const profileId = await getOrCreateZernioProfile(req.user);
 
         const origin = req.headers.origin || process.env.FRONTEND_URL || "http://localhost:5173";
-        const redirectUrl = `${origin}/accounts`;
+        let redirectUrl = `${origin}/accounts`;
 
         const queryParams: Record<string, any> = {
             profileId,
-            redirectUrl,
-            redirect_url: redirectUrl,
         };
 
         if (platform === "instagram") {
             // Direct Instagram Login vs Instagram via Facebook Page
-            queryParams.loginMethod = req.query.loginMethod === "facebook_login" ? "facebook_login" : "instagram_login";
+            const method = req.query.loginMethod === "facebook_login" ? "facebook_login" : "instagram_login";
+            queryParams.loginMethod = method;
+            redirectUrl = `${origin}/accounts?loginMethod=${encodeURIComponent(method)}`;
         }
+
+        queryParams.redirectUrl = redirectUrl;
+        queryParams.redirect_url = redirectUrl;
 
         const result = await zernio.connect.getConnectUrl({
             path: { platform: platform as any },
@@ -115,8 +118,27 @@ export const syncAccounts = async (req: AuthRequest, res: Response): Promise<voi
                 continue;
             }
 
-            const loginMethod = zAccount.loginMethod || (zAccount.facebookPageId || zAccount.pageId ? "facebook_login" : "instagram_login");
-            const isFbLinked = loginMethod === "facebook_login" || Boolean(zAccount.facebookPageId || zAccount.pageId);
+            // Accurately determine loginMethod based on platform and connection method
+            let loginMethod = "standard";
+            if (normalizedPlatform === "instagram") {
+                const zMeta = (zAccount.metadata || {}) as Record<string, any>;
+                const explicitMethod = zMeta.loginMethod || zAccount.loginMethod || (req.query.loginMethod as string);
+                const hasFbLinked = Boolean(
+                    zMeta.selectedPageId ||
+                    zMeta.selectedPageName ||
+                    zAccount.facebookPageId ||
+                    zAccount.pageId ||
+                    explicitMethod === "facebook_login"
+                );
+
+                if (hasFbLinked || explicitMethod === "facebook_login") {
+                    loginMethod = "facebook_login";
+                } else {
+                    loginMethod = "instagram_login";
+                }
+            }
+
+            const isFbLinked = loginMethod === "facebook_login";
 
             const capabilities = {
                 posting: true,
@@ -133,9 +155,10 @@ export const syncAccounts = async (req: AuthRequest, res: Response): Promise<voi
                     handle: zAccount.username || zAccount.name || zAccount.handle || "Unknown",
                     zernioAccountId: zid,
                     status: "connected",
-                    avatarUrl: zAccount.avatarUrl || zAccount.picture || zAccount.profile_image_url,
+                    avatarUrl: zAccount.profilePicture || zAccount.avatarUrl || zAccount.picture || zAccount.profile_image_url,
                     loginMethod,
                     capabilities,
+                    metadata: zAccount.metadata || {},
                 },
                 { upsert: true, returnDocument: 'after' }
             );

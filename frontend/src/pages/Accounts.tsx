@@ -3,21 +3,26 @@ import AccountList from "../components/Account/AccountList"
 import { toast } from "sonner"
 import { api, API_PATHS } from "../api/axios"
 import { PLATFORMS } from "../assets/assets"
-import { AlertTriangleIcon } from "lucide-react"
+import { AlertTriangleIcon, RefreshCwIcon } from "lucide-react"
 
 import InstagramConnectModal from "../components/Account/InstagramConnectModal"
 
 const Accounts = () => {
     const [accounts, setAccounts] = useState<any[]>([])
     const [connecting, setConnecting] = useState<string | null>(null)
+    const [isSyncing, setIsSyncing] = useState<boolean>(false)
     const [showInstagramModal, setShowInstagramModal] = useState<boolean>(false)
 
-    const fetchAccounts = async (isSync = false, platform?: string | null, successMsg?: string) => {
+    const fetchAccounts = async (isSync = false, platform?: string | null, successMsg?: string, loginMethod?: string) => {
         try {
             if (isSync) {
+                setIsSyncing(true);
                 const label = platform ? platform.charAt(0).toUpperCase() + platform.slice(1) : "Social Media";
                 toast.loading(`Syncing ${label} account...`, { id: "sync" });
-                await api.get(API_PATHS.OAUTH.SYNC);
+                const syncUrl = loginMethod
+                    ? `${API_PATHS.OAUTH.SYNC}?loginMethod=${encodeURIComponent(loginMethod)}`
+                    : API_PATHS.OAUTH.SYNC;
+                await api.get(syncUrl);
                 toast.success(successMsg || "Accounts synced!", { id: "sync" });
             }
 
@@ -27,6 +32,7 @@ const Accounts = () => {
             toast.error(error.response?.data?.message || "Failed to fetch accounts");
         } finally {
             setConnecting(null);
+            setIsSyncing(false);
         }
     }
 
@@ -36,13 +42,14 @@ const Accounts = () => {
         const connectedUsername = params.get("username");
         const syncNeeded = params.get("sync") === "true";
         const errorMsg = params.get("error");
+        const loginMethod = params.get("loginMethod");
 
         window.history.replaceState({}, document.title, window.location.pathname);
 
         if (connectedPlatform) {
             const label = connectedPlatform.charAt(0).toUpperCase() + connectedPlatform.slice(1);
             const handle = connectedUsername ? ` (@${connectedUsername})` : ""
-            fetchAccounts(true, connectedPlatform, `${label}${handle} connected!`)
+            fetchAccounts(true, connectedPlatform, `${label}${handle} connected!`, loginMethod || undefined)
         } else if (errorMsg) {
             toast.error(`Connection failed: ${decodeURIComponent(errorMsg)}`)
             fetchAccounts();
@@ -97,6 +104,15 @@ const Accounts = () => {
                         Connect your social media accounts to start scheduling posts ({accounts.length} of {PLATFORMS.length} connected)
                     </p>
                 </div>
+                <button
+                    onClick={() => fetchAccounts(true, null, "Accounts synced!")}
+                    disabled={isSyncing || connecting !== null}
+                    className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800/80 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                    title="Refresh and sync connected accounts status"
+                >
+                    <RefreshCwIcon className={`size-3.5 ${isSyncing ? "animate-spin text-pink-500" : ""}`} />
+                    <span>{isSyncing ? "Syncing..." : "Sync Accounts"}</span>
+                </button>
             </div>
 
             {/* Proactive Disconnected Alert Banner */}
