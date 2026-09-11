@@ -97,11 +97,24 @@ export async function publishPost(post: any): Promise<PublishResult> {
             }
         }
 
+        // Attach YouTube custom thumbnail if specified and not short
+        const ytThumbnail = post.platformDetails?.youtube?.thumbnail || post.platformSpecificData?.youtube?.thumbnail;
+        const ytIsShort = post.platformDetails?.youtube?.isShort || post.platformSpecificData?.youtube?.isShort;
+        if (ytThumbnail && !ytIsShort && mediaItemsPayload.length > 0) {
+            mediaItemsPayload[0].thumbnail = ytThumbnail;
+        }
+
         const payload: Record<string, any> = {
             content: post.content,
             publishNow: true,
             platforms: zernioPlatforms,
         };
+
+        // Attach tags if provided (specifically for YouTube)
+        const ytTags = post.platformDetails?.youtube?.tags || post.platformSpecificData?.youtube?.tags;
+        if (Array.isArray(ytTags) && ytTags.length > 0) {
+            payload.tags = ytTags;
+        }
 
         if (mediaItemsPayload.length > 0) {
             payload.mediaItems = mediaItemsPayload;
@@ -113,30 +126,69 @@ export async function publishPost(post: any): Promise<PublishResult> {
             body: payload as any
         });
 
-        const publishedPost = (response.data as any)?.post || response.data;
+        const responseData = response.data as any;
+        const publishedPost = responseData?.post || responseData;
         if (!publishedPost) {
             throw new Error("Failed to get post object from Zernio response");
         }
 
         const externalId = publishedPost._id || publishedPost.id;
-        console.log(`✅ [PUBLISHER] Zernio post created successfully: ${externalId}`);
+        const returnedPlatforms: any[] = Array.isArray(publishedPost.platforms) ? publishedPost.platforms : [];
 
-        // Update Post model status and granular platformDetails
-        post.status = "published";
-        post.failedReason = undefined;
+        // Check for complete failure (HTTP 207 Multi-Status or status: failed)
+        const allPlatformsFailed =
+            publishedPost.status === "failed" ||
+            (returnedPlatforms.length > 0 && returnedPlatforms.every((p: any) => p.status === "failed"));
+
+        if (allPlatformsFailed) {
+            const firstFailedMsg =
+                returnedPlatforms.find((p: any) => p.errorMessage)?.errorMessage ||
+                responseData?.error ||
+                responseData?.message ||
+                "Publishing failed across all platforms";
+            throw new Error(firstFailedMsg);
+        }
+
+        console.log(`✅ [PUBLISHER] Zernio post processed: ${externalId}`);
 
         if (!post.platformDetails) {
             post.platformDetails = {};
         }
 
+        let hasAnyPublished = false;
+        let hasAnyFailed = false;
+
         for (const acc of accounts) {
             if (!post.platformDetails[acc.platform]) {
                 post.platformDetails[acc.platform] = {};
             }
-            post.platformDetails[acc.platform].status = "published";
-            post.platformDetails[acc.platform].publishedPostId = externalId;
-            post.platformDetails[acc.platform].publishedAt = new Date();
-            post.platformDetails[acc.platform].failedReason = undefined;
+
+            const platReport = returnedPlatforms.find((p: any) => p.platform === acc.platform);
+
+            if (platReport && platReport.status === "failed") {
+                hasAnyFailed = true;
+                post.platformDetails[acc.platform].status = "failed";
+                post.platformDetails[acc.platform].failedReason = platReport.errorMessage || "Publishing failed on this platform";
+            } else {
+                hasAnyPublished = true;
+                post.platformDetails[acc.platform].status = "published";
+                post.platformDetails[acc.platform].publishedPostId = externalId;
+                post.platformDetails[acc.platform].publishedAt = new Date();
+                post.platformDetails[acc.platform].failedReason = undefined;
+                if (platReport?.platformPostUrl) {
+                    post.platformDetails[acc.platform].platformPostUrl = platReport.platformPostUrl;
+                }
+            }
+        }
+
+        // Determine overall post status
+        if (hasAnyPublished && hasAnyFailed) {
+            post.status = "partially_published";
+        } else if (hasAnyPublished) {
+            post.status = "published";
+            post.failedReason = undefined;
+        } else {
+            post.status = "failed";
         }
 
         await post.save();

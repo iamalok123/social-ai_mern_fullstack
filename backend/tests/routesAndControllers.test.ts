@@ -166,12 +166,13 @@ describe("Routes, Controllers & Middlewares Test Suite", () => {
             getAllPlatforms(req, res);
 
             assert.ok(Array.isArray(responseData));
-            assert.strictEqual(responseData.length, 4);
+            assert.strictEqual(responseData.length, 5);
             const ids = responseData.map((p: any) => p.platformId);
             assert.ok(ids.includes("twitter"));
             assert.ok(ids.includes("linkedin"));
             assert.ok(ids.includes("instagram"));
             assert.ok(ids.includes("facebook"));
+            assert.ok(ids.includes("youtube"));
         });
 
         it("getPlatformById returns single platform capabilities", () => {

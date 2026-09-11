@@ -2,6 +2,7 @@ import React from "react";
 import LinkedInOptionsCard from "./linkedin/LinkedInOptionsCard";
 import FacebookOptionsCard from "./facebook/FacebookOptionsCard";
 import InstagramOptionsCard from "./instagram/InstagramOptionsCard";
+import YouTubeOptionsCard from "./youtube/YouTubeOptionsCard";
 import type { SelectedAudioConfig } from "../../Media/InstagramAudioModal";
 
 interface PlatformOptionsContainerProps {
@@ -62,6 +63,31 @@ interface PlatformOptionsContainerProps {
     isInstagramViaFacebook: boolean;
     isInstagramCollapsed: boolean;
     onToggleInstagramCollapse: () => void;
+
+    // YouTube props
+    youtubeTitle: string;
+    onYoutubeTitleChange: (val: string) => void;
+    youtubeVisibility: "public" | "private" | "unlisted";
+    onYoutubeVisibilityChange: (val: "public" | "private" | "unlisted") => void;
+    youtubeCategoryId: string;
+    onYoutubeCategoryIdChange: (val: string) => void;
+    youtubeMadeForKids: boolean;
+    onYoutubeMadeForKidsChange: (val: boolean) => void;
+    youtubeContainsSyntheticMedia: boolean;
+    onYoutubeContainsSyntheticMediaChange: (val: boolean) => void;
+    youtubePlaylistId: string;
+    onYoutubePlaylistIdChange: (val: string) => void;
+    youtubePlaylists: Array<{ id: string; title: string; itemCount?: number }>;
+    isLoadingPlaylists?: boolean;
+    onRefreshPlaylists?: () => void;
+    youtubeFirstComment: string;
+    onYoutubeFirstCommentChange: (val: string) => void;
+    youtubeCustomThumbnail: string;
+    onYoutubeCustomThumbnailChange: (val: string) => void;
+    youtubeIsShort: boolean;
+    hasVideo: boolean;
+    isYoutubeCollapsed: boolean;
+    onToggleYoutubeCollapse: () => void;
 }
 
 export const PlatformOptionsContainer: React.FC<PlatformOptionsContainerProps> = ({
@@ -122,9 +148,63 @@ export const PlatformOptionsContainer: React.FC<PlatformOptionsContainerProps> =
     isInstagramViaFacebook,
     isInstagramCollapsed,
     onToggleInstagramCollapse,
+
+    // YouTube
+    youtubeTitle,
+    onYoutubeTitleChange,
+    youtubeVisibility,
+    onYoutubeVisibilityChange,
+    youtubeCategoryId,
+    onYoutubeCategoryIdChange,
+    youtubeMadeForKids,
+    onYoutubeMadeForKidsChange,
+    youtubeContainsSyntheticMedia,
+    onYoutubeContainsSyntheticMediaChange,
+    youtubePlaylistId,
+    onYoutubePlaylistIdChange,
+    youtubePlaylists,
+    isLoadingPlaylists,
+    onRefreshPlaylists,
+    youtubeFirstComment,
+    onYoutubeFirstCommentChange,
+    youtubeCustomThumbnail,
+    onYoutubeCustomThumbnailChange,
+    youtubeIsShort,
+    hasVideo,
+    isYoutubeCollapsed,
+    onToggleYoutubeCollapse,
 }) => {
     return (
         <div className="space-y-4">
+            {/* YouTube Options Card */}
+            {selectedPlatforms.includes("youtube") && (
+                <YouTubeOptionsCard
+                    title={youtubeTitle}
+                    onTitleChange={onYoutubeTitleChange}
+                    visibility={youtubeVisibility}
+                    onVisibilityChange={onYoutubeVisibilityChange}
+                    categoryId={youtubeCategoryId}
+                    onCategoryIdChange={onYoutubeCategoryIdChange}
+                    madeForKids={youtubeMadeForKids}
+                    onMadeForKidsChange={onYoutubeMadeForKidsChange}
+                    containsSyntheticMedia={youtubeContainsSyntheticMedia}
+                    onContainsSyntheticMediaChange={onYoutubeContainsSyntheticMediaChange}
+                    playlistId={youtubePlaylistId}
+                    onPlaylistIdChange={onYoutubePlaylistIdChange}
+                    playlists={youtubePlaylists}
+                    isLoadingPlaylists={isLoadingPlaylists}
+                    onRefreshPlaylists={onRefreshPlaylists}
+                    firstComment={youtubeFirstComment}
+                    onFirstCommentChange={onYoutubeFirstCommentChange}
+                    isShort={youtubeIsShort}
+                    customThumbnail={youtubeCustomThumbnail}
+                    onCustomThumbnailChange={onYoutubeCustomThumbnailChange}
+                    hasVideo={hasVideo}
+                    isCollapsed={isYoutubeCollapsed}
+                    onToggleCollapse={onToggleYoutubeCollapse}
+                />
+            )}
+
             {/* LinkedIn Growth Features Card */}
             {selectedPlatforms.includes("linkedin") && (
                 <LinkedInOptionsCard

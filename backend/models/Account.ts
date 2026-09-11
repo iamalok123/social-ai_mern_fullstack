@@ -9,7 +9,7 @@ const accountSchema = new mongoose.Schema({
     platform: {
         type: String,
         enum: [
-            "twitter", "linkedin", "facebook", "instagram",
+            "twitter", "linkedin", "facebook", "instagram", "youtube",
             "facebook_page", "linkedin_page", "instagram_business"
         ],
         required: true

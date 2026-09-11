@@ -152,6 +152,38 @@ const facebookDetailsSchema = new mongoose.Schema(
 );
 
 // ---------------------------------------------------------
+// Subdocument Schema: YouTube Details
+// ---------------------------------------------------------
+const youtubeDetailsSchema = new mongoose.Schema(
+    {
+        title: { type: String },
+        visibility: {
+            type: String,
+            enum: ["public", "private", "unlisted"],
+            default: "public"
+        },
+        categoryId: { type: String, default: "22" },
+        madeForKids: { type: Boolean, default: false },
+        containsSyntheticMedia: { type: Boolean, default: false },
+        playlistId: { type: String },
+        firstComment: { type: String },
+        isShort: { type: Boolean, default: false },
+        tags: [{ type: String }],
+        thumbnail: { type: String },
+        status: {
+            type: String,
+            enum: ["pending", "published", "failed"],
+            default: "pending"
+        },
+        publishedPostId: { type: String },
+        platformPostUrl: { type: String },
+        failedReason: { type: String },
+        publishedAt: { type: Date }
+    },
+    { _id: false }
+);
+
+// ---------------------------------------------------------
 // Main Post Schema
 // ---------------------------------------------------------
 const postSchema = new mongoose.Schema(
@@ -194,6 +226,7 @@ const postSchema = new mongoose.Schema(
                     "linkedin",
                     "facebook",
                     "instagram",
+                    "youtube",
                     "facebook_page",
                     "linkedin_page",
                     "instagram_business"
@@ -228,7 +261,8 @@ const postSchema = new mongoose.Schema(
             twitter: { type: twitterDetailsSchema, default: () => ({}) },
             linkedin: { type: linkedinDetailsSchema, default: () => ({}) },
             instagram: { type: instagramDetailsSchema, default: () => ({}) },
-            facebook: { type: facebookDetailsSchema, default: () => ({}) }
+            facebook: { type: facebookDetailsSchema, default: () => ({}) },
+            youtube: { type: youtubeDetailsSchema, default: () => ({}) }
         }
     },
     { timestamps: true }

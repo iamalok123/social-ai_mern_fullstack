@@ -11,6 +11,7 @@ import {
     ImageIcon,
     FilmIcon,
     BarChart3Icon,
+    Edit3Icon,
 } from "lucide-react";
 import type { Post } from "../types";
 import PostThumbnail from "../common/PostThumbnail";
@@ -24,6 +25,7 @@ interface PostHistoryCardProps {
     deletingId?: string | null;
     onViewAnalytics?: (postId: string) => void;
     onReEdit?: (post: Post) => void;
+    onEditYoutubeDescription?: (post: Post) => void;
     formatRelativeSchedule: (dateString: string) => string;
 }
 
@@ -36,6 +38,7 @@ export const PostHistoryCard: React.FC<PostHistoryCardProps> = ({
     deletingId,
     onViewAnalytics,
     onReEdit,
+    onEditYoutubeDescription,
     formatRelativeSchedule,
 }) => {
     const isLongText = (post.content || "").length > 140;
@@ -109,11 +112,22 @@ export const PostHistoryCard: React.FC<PostHistoryCardProps> = ({
                     )}
 
                     {post.status === "published" && (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="inline-flex items-center gap-1 text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900/60">
                                 <CheckCircle2Icon className="size-3 text-emerald-500" />
                                 <span>Published</span>
                             </span>
+                            {post.platforms?.includes("youtube") && onEditYoutubeDescription && (
+                                <button
+                                    type="button"
+                                    onClick={() => onEditYoutubeDescription(post)}
+                                    title="Edit YouTube Video Description"
+                                    className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-lg bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 border border-red-200/80 dark:border-red-900/60 transition-colors cursor-pointer"
+                                >
+                                    <Edit3Icon className="size-3" />
+                                    <span>Edit Description</span>
+                                </button>
+                            )}
                             {onViewAnalytics && (
                                 <button
                                     type="button"

@@ -1,5 +1,5 @@
 import React from "react";
-import { SiX, SiFacebook, SiInstagram } from "@icons-pack/react-simple-icons";
+import { SiX, SiFacebook, SiInstagram, SiYoutube } from "@icons-pack/react-simple-icons";
 
 const LinkedInIcon = (props: React.SVGProps<SVGSVGElement>) => (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="1em" height="1em" {...props}>
@@ -20,5 +20,6 @@ export const PLATFORMS: Platform[] = [
     { id: "linkedin", name: "LinkedIn", icon: LinkedInIcon, description: "Publish to your profile & company pages", color: "#0A66C2" },
     { id: "facebook", name: "Facebook", icon: SiFacebook, description: "Manage your pages and profile", color: "#1877F2" },
     { id: "instagram", name: "Instagram", icon: SiInstagram, description: "Share photos, reels and stories", color: "#E4405F" },
+    { id: "youtube", name: "YouTube", icon: SiYoutube, description: "Publish videos, shorts, and playlists", color: "#FF0000" },
 ];
 

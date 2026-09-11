@@ -10,6 +10,9 @@ import {
     listInstagramStories,
     searchInstagramAudio
 } from "../controllers/accountController.js";
+import {
+    getYoutubePlaylists
+} from "../services/social/platforms/youtube/youtubeController.js";
 
 const accountRouter = express.Router();
 
@@ -19,6 +22,10 @@ accountRouter.delete('/:id', protect, disconnectAccount);
 
 // Account Health Diagnostics
 accountRouter.get('/:id/health', protect, getAccountHealth);
+
+// YouTube Specific APIs
+accountRouter.get('/youtube/playlists', protect, getYoutubePlaylists);
+accountRouter.get('/:id/youtube/playlists', protect, getYoutubePlaylists);
 
 // Instagram Specific APIs
 accountRouter.get('/instagram/audio/search', protect, searchInstagramAudio);

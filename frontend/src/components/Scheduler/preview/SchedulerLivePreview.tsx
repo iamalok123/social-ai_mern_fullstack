@@ -5,6 +5,7 @@ import TwitterPostPreview from "../../Media/Twitter";
 import LinkedInPostPreview from "../../Media/Linkedin";
 import FacebookPostPreview from "../../Media/Facebook";
 import InstagramPostPreview from "../../Media/Instagram";
+import YouTubePostPreview from "../../Media/YouTube";
 import type { SelectedAudioConfig } from "../../Media/InstagramAudioModal";
 
 interface SchedulerLivePreviewProps {
@@ -38,6 +39,15 @@ interface SchedulerLivePreviewProps {
     instagramMuteAudio: boolean;
     instagramTrial: boolean;
     instagramCommentsEnabled: boolean;
+
+    // YouTube
+    youtubeTitle?: string;
+    youtubeVisibility?: "public" | "private" | "unlisted";
+    youtubeIsShort?: boolean;
+    youtubeFirstComment?: string;
+    youtubeCustomThumbnail?: string;
+    youtubeMadeForKids?: boolean;
+    youtubeContainsSyntheticMedia?: boolean;
 }
 
 export const SchedulerLivePreview: React.FC<SchedulerLivePreviewProps> = ({
@@ -67,6 +77,13 @@ export const SchedulerLivePreview: React.FC<SchedulerLivePreviewProps> = ({
     instagramMuteAudio,
     instagramTrial,
     instagramCommentsEnabled,
+    youtubeTitle,
+    youtubeVisibility,
+    youtubeIsShort,
+    youtubeFirstComment,
+    youtubeCustomThumbnail,
+    youtubeMadeForKids,
+    youtubeContainsSyntheticMedia,
 }) => {
     if (selectedPlatforms.length === 0) return null;
 
@@ -209,6 +226,22 @@ export const SchedulerLivePreview: React.FC<SchedulerLivePreviewProps> = ({
                         muteAudio={instagramMuteAudio}
                         isTrial={instagramTrial}
                         commentsEnabled={instagramCommentsEnabled}
+                    />
+                )}
+                {currentPlatformId === "youtube" && (
+                    <YouTubePostPreview
+                        content={content}
+                        mediaUrl={previewMediaUrl}
+                        mediaUrls={allPreviewMediaUrls}
+                        mediaType={activeMediaType}
+                        user={user}
+                        title={youtubeTitle}
+                        visibility={youtubeVisibility}
+                        isShort={youtubeIsShort}
+                        firstComment={youtubeFirstComment}
+                        customThumbnail={youtubeCustomThumbnail}
+                        madeForKids={youtubeMadeForKids}
+                        containsSyntheticMedia={youtubeContainsSyntheticMedia}
                     />
                 )}
             </div>

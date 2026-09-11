@@ -11,6 +11,7 @@ interface PostHistoryDualColumnProps {
     onPreviewMedia: (media: { url: string; type: "image" | "video" }) => void;
     onDeleteUpcoming: (post: Post) => void;
     deletingId: string | null;
+    onEditYoutubeDescription?: (post: Post) => void;
     formatRelativeSchedule: (dateString: string) => string;
     onCreatePostClick: () => void;
 }
@@ -23,6 +24,7 @@ export const PostHistoryDualColumn: React.FC<PostHistoryDualColumnProps> = ({
     onPreviewMedia,
     onDeleteUpcoming,
     deletingId,
+    onEditYoutubeDescription,
     formatRelativeSchedule,
     onCreatePostClick,
 }) => {
@@ -125,6 +127,7 @@ export const PostHistoryDualColumn: React.FC<PostHistoryDualColumnProps> = ({
                                 isExpanded={expandedPostIds.includes(post._id)}
                                 onToggleExpand={onToggleExpand}
                                 onPreviewMedia={onPreviewMedia}
+                                onEditYoutubeDescription={onEditYoutubeDescription}
                                 formatRelativeSchedule={formatRelativeSchedule}
                             />
                         ))

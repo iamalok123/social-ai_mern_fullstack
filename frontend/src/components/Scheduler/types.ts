@@ -54,6 +54,18 @@ export interface InstagramOptions {
     commentsEnabled: boolean;
 }
 
+export interface YouTubeOptions {
+    title: string;
+    visibility: "public" | "private" | "unlisted";
+    categoryId: string;
+    madeForKids: boolean;
+    containsSyntheticMedia: boolean;
+    playlistId: string;
+    firstComment: string;
+    customThumbnail: string;
+    isShort: boolean;
+}
+
 export interface AnalyticsData {
     impressions?: number;
     reach?: number;

@@ -5,6 +5,7 @@ import { deletePost, getPostAnalytics, getPosts, schedulePost } from "../control
 import { deleteGeneration, generatePost, getGenerations } from "../controllers/generationController.js";
 import { upload } from "../config/multer.js";
 import { evaluateScheduledPosts } from "../services/schedulerService.js";
+import { editYoutubePostDescription } from "../services/social/platforms/youtube/youtubeController.js";
 
 const postRouter = express.Router();
 
@@ -20,6 +21,7 @@ postRouter.get('/cron-trigger', async (_req, res) => {
 postRouter.get('/', protect, getPosts);
 postRouter.get('/:id/analytics', protect, getPostAnalytics);
 postRouter.delete('/:id', protect, deletePost);
+postRouter.post('/:id/youtube/edit', protect, editYoutubePostDescription);
 postRouter.get('/generations', protect, getGenerations);
 postRouter.delete('/generations/:id', protect, deleteGeneration);
 postRouter.post('/', protect, upload.array("media", 20), postValidationMiddleware, schedulePost);

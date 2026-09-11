@@ -95,6 +95,30 @@ interface SchedulerComposerProps {
     isInstagramCollapsed: boolean;
     onToggleInstagramCollapse: () => void;
 
+    // YouTube
+    youtubeTitle: string;
+    onYoutubeTitleChange: (val: string) => void;
+    youtubeVisibility: "public" | "private" | "unlisted";
+    onYoutubeVisibilityChange: (val: "public" | "private" | "unlisted") => void;
+    youtubeCategoryId: string;
+    onYoutubeCategoryIdChange: (val: string) => void;
+    youtubeMadeForKids: boolean;
+    onYoutubeMadeForKidsChange: (val: boolean) => void;
+    youtubeContainsSyntheticMedia: boolean;
+    onYoutubeContainsSyntheticMediaChange: (val: boolean) => void;
+    youtubePlaylistId: string;
+    onYoutubePlaylistIdChange: (val: string) => void;
+    youtubePlaylists: Array<{ id: string; title: string; itemCount?: number }>;
+    isLoadingPlaylists?: boolean;
+    onRefreshPlaylists?: () => void;
+    youtubeFirstComment: string;
+    onYoutubeFirstCommentChange: (val: string) => void;
+    youtubeCustomThumbnail: string;
+    onYoutubeCustomThumbnailChange: (val: string) => void;
+    youtubeIsShort: boolean;
+    isYoutubeCollapsed: boolean;
+    onToggleYoutubeCollapse: () => void;
+
     // Submission
     onSubmit: (e: React.FormEvent) => void;
     loading: boolean;
@@ -175,6 +199,29 @@ export const SchedulerComposer: React.FC<SchedulerComposerProps> = ({
     isInstagramViaFacebook,
     isInstagramCollapsed,
     onToggleInstagramCollapse,
+    // YouTube
+    youtubeTitle,
+    onYoutubeTitleChange,
+    youtubeVisibility,
+    onYoutubeVisibilityChange,
+    youtubeCategoryId,
+    onYoutubeCategoryIdChange,
+    youtubeMadeForKids,
+    onYoutubeMadeForKidsChange,
+    youtubeContainsSyntheticMedia,
+    onYoutubeContainsSyntheticMediaChange,
+    youtubePlaylistId,
+    onYoutubePlaylistIdChange,
+    youtubePlaylists,
+    isLoadingPlaylists,
+    onRefreshPlaylists,
+    youtubeFirstComment,
+    onYoutubeFirstCommentChange,
+    youtubeCustomThumbnail,
+    onYoutubeCustomThumbnailChange,
+    youtubeIsShort,
+    isYoutubeCollapsed,
+    onToggleYoutubeCollapse,
     onSubmit,
     loading,
 }) => {
@@ -254,6 +301,7 @@ export const SchedulerComposer: React.FC<SchedulerComposerProps> = ({
                         facebookGeoCountries={facebookGeoCountries}
                         onFacebookGeoCountriesChange={onFacebookGeoCountriesChange}
                         hasMedia={hasMedia}
+                        hasVideo={hasVideo}
                         isFacebookCollapsed={isFacebookCollapsed}
                         onToggleFacebookCollapse={onToggleFacebookCollapse}
                         instagramContentType={instagramContentType}
@@ -286,6 +334,28 @@ export const SchedulerComposer: React.FC<SchedulerComposerProps> = ({
                         isInstagramViaFacebook={isInstagramViaFacebook}
                         isInstagramCollapsed={isInstagramCollapsed}
                         onToggleInstagramCollapse={onToggleInstagramCollapse}
+                        youtubeTitle={youtubeTitle}
+                        onYoutubeTitleChange={onYoutubeTitleChange}
+                        youtubeVisibility={youtubeVisibility}
+                        onYoutubeVisibilityChange={onYoutubeVisibilityChange}
+                        youtubeCategoryId={youtubeCategoryId}
+                        onYoutubeCategoryIdChange={onYoutubeCategoryIdChange}
+                        youtubeMadeForKids={youtubeMadeForKids}
+                        onYoutubeMadeForKidsChange={onYoutubeMadeForKidsChange}
+                        youtubeContainsSyntheticMedia={youtubeContainsSyntheticMedia}
+                        onYoutubeContainsSyntheticMediaChange={onYoutubeContainsSyntheticMediaChange}
+                        youtubePlaylistId={youtubePlaylistId}
+                        onYoutubePlaylistIdChange={onYoutubePlaylistIdChange}
+                        youtubePlaylists={youtubePlaylists}
+                        isLoadingPlaylists={isLoadingPlaylists}
+                        onRefreshPlaylists={onRefreshPlaylists}
+                        youtubeFirstComment={youtubeFirstComment}
+                        onYoutubeFirstCommentChange={onYoutubeFirstCommentChange}
+                        youtubeCustomThumbnail={youtubeCustomThumbnail}
+                        onYoutubeCustomThumbnailChange={onYoutubeCustomThumbnailChange}
+                        youtubeIsShort={youtubeIsShort}
+                        isYoutubeCollapsed={isYoutubeCollapsed}
+                        onToggleYoutubeCollapse={onToggleYoutubeCollapse}
                     />
 
                     {/* Submit Button */}

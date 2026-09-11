@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { PLATFORMS } from "../assets/assets";
 import { useAuth } from "../context/AuthContext";
@@ -15,8 +15,9 @@ import SchedulerComposer from "../components/Scheduler/composer/SchedulerCompose
 import SchedulerLivePreview from "../components/Scheduler/preview/SchedulerLivePreview";
 import PostHistoryTab from "../components/Scheduler/history/PostHistoryTab";
 import DeleteConfirmModal from "../components/Scheduler/modals/DeleteConfirmModal";
-import MediaLightboxModal from "../components/Scheduler/modals/MediaLightboxModal";
 import PostAnalyticsModal from "../components/Scheduler/modals/PostAnalyticsModal";
+import EditYoutubeDescriptionModal from "../components/Scheduler/modals/EditYoutubeDescriptionModal";
+import MediaLightboxModal from "../components/Scheduler/modals/MediaLightboxModal";
 
 const Scheduler = () => {
     const { user } = useAuth();
@@ -35,13 +36,28 @@ const Scheduler = () => {
     const [isLinkedinCollapsed, setIsLinkedinCollapsed] = useState(false);
     const [isFacebookCollapsed, setIsFacebookCollapsed] = useState(false);
     const [isInstagramCollapsed, setIsInstagramCollapsed] = useState(false);
+    const [isYoutubeCollapsed, setIsYoutubeCollapsed] = useState(false);
+
+    // YouTube specific options state
+    const [youtubeTitle, setYoutubeTitle] = useState("");
+    const [youtubeVisibility, setYoutubeVisibility] = useState<"public" | "private" | "unlisted">("public");
+    const [youtubeCategoryId, setYoutubeCategoryId] = useState("22");
+    const [youtubeMadeForKids, setYoutubeMadeForKids] = useState(false);
+    const [youtubeContainsSyntheticMedia, setYoutubeContainsSyntheticMedia] = useState(false);
+    const [youtubePlaylistId, setYoutubePlaylistId] = useState("");
+    const [youtubePlaylists, setYoutubePlaylists] = useState<Array<{ id: string; title: string; itemCount?: number }>>([]);
+    const [loadingPlaylists, setLoadingPlaylists] = useState(false);
+    const [youtubeFirstComment, setYoutubeFirstComment] = useState("");
+    const [youtubeCustomThumbnail, setYoutubeCustomThumbnail] = useState("");
+    const [youtubeIsShort, setYoutubeIsShort] = useState(false);
+    const [editingYoutubePost, setEditingYoutubePost] = useState<Post | null>(null);
 
     // Reset active preview index if it goes out of range
     useEffect(() => {
         if (activePreviewIndex >= selectedPlatforms.length && selectedPlatforms.length > 0) {
             setActivePreviewIndex(0);
         }
-    }, [selectedPlatforms]);
+    }, [selectedPlatforms, activePreviewIndex]);
 
     const handlePrevPreview = () => {
         if (selectedPlatforms.length <= 1) return;
@@ -129,6 +145,81 @@ const Scheduler = () => {
             urls.forEach((u) => URL.revokeObjectURL(u));
         };
     }, [mediaFiles]);
+
+    // Fetch YouTube Playlists when YouTube platform is selected
+    const fetchYoutubePlaylists = useCallback(async () => {
+        const ytAccount = connectedAccounts.find((a) => a.platform === "youtube" && a.status === "connected");
+        if (!ytAccount) return;
+        setLoadingPlaylists(true);
+        try {
+            const { data } = await api.get(`/api/accounts/${ytAccount._id}/youtube/playlists`);
+            if (data?.playlists && Array.isArray(data.playlists)) {
+                setYoutubePlaylists(data.playlists);
+            }
+        } catch (e) {
+            console.warn("Could not fetch YouTube playlists", e);
+        } finally {
+            setLoadingPlaylists(false);
+        }
+    }, [connectedAccounts]);
+
+    useEffect(() => {
+        if (selectedPlatforms.includes("youtube")) {
+            fetchYoutubePlaylists();
+        }
+    }, [selectedPlatforms, fetchYoutubePlaylists]);
+
+    // Client-side auto-detection for YouTube Shorts vs Long-Form Video
+    // (Duration <= 180s and vertical 9:16 aspect ratio / height > width)
+    useEffect(() => {
+        const videoFile = mediaFiles.find((f) => f.type.startsWith("video/"));
+        const videoUrl = existingMediaUrls.find((u) => /\.(mp4|webm|mov|mkv|ogg)$/i.test(u) || u.includes("/video/upload/"));
+
+        let objectUrlToRevoke: string | null = null;
+        let testSrc = "";
+
+        if (videoFile) {
+            objectUrlToRevoke = URL.createObjectURL(videoFile);
+            testSrc = objectUrlToRevoke;
+        } else if (videoUrl) {
+            testSrc = videoUrl;
+        }
+
+        if (!testSrc) {
+            setYoutubeIsShort(false);
+            return;
+        }
+
+        const videoEl = document.createElement("video");
+        videoEl.preload = "metadata";
+        videoEl.src = testSrc;
+
+        videoEl.onloadedmetadata = () => {
+            const duration = videoEl.duration;
+            const width = videoEl.videoWidth;
+            const height = videoEl.videoHeight;
+            // Short: <= 180s and vertical (height > width)
+            const isVertical = height > width;
+            const isShortDetected = duration <= 180 && isVertical;
+            setYoutubeIsShort(isShortDetected);
+
+            if (objectUrlToRevoke) {
+                URL.revokeObjectURL(objectUrlToRevoke);
+            }
+        };
+
+        videoEl.onerror = () => {
+            if (objectUrlToRevoke) {
+                URL.revokeObjectURL(objectUrlToRevoke);
+            }
+        };
+
+        return () => {
+            if (objectUrlToRevoke) {
+                URL.revokeObjectURL(objectUrlToRevoke);
+            }
+        };
+    }, [mediaFiles, existingMediaUrls]);
 
     // Read location state when navigated from Kanban / Ideas board or AI Composer
     useEffect(() => {
@@ -238,6 +329,7 @@ const Scheduler = () => {
     const isLinkedInSelected = selectedPlatforms.includes("linkedin");
     const isFacebookSelected = selectedPlatforms.includes("facebook");
     const isInstagramSelected = selectedPlatforms.includes("instagram");
+    const isYouTubeSelected = selectedPlatforms.includes("youtube");
     const maxAllowedImages = isTwitterSelected ? 4 : (isFacebookSelected || isInstagramSelected ? 10 : 20);
 
     const connectedInstagramAccount = connectedAccounts.find((a) => a.platform === "instagram");
@@ -249,7 +341,8 @@ const Scheduler = () => {
         isTwitterSelected,
         isFacebookSelected,
         isInstagramSelected,
-        isLinkedInSelected
+        isLinkedInSelected,
+        isYouTubeSelected
     );
 
     const handleViewAnalytics = async (postId: string) => {
@@ -282,6 +375,12 @@ const Scheduler = () => {
                 const currentImagesCount = (mediaFiles.length + existingMediaUrls.length);
                 if (!hasVideo && currentImagesCount > 10) {
                     toast.warning(`Facebook allows a maximum of 10 images. You currently have ${currentImagesCount} images attached. Please remove excess images before scheduling to Facebook.`);
+                }
+            }
+            if (isTurningOn && id === "youtube") {
+                const currentImagesCount = (mediaFiles.length + existingMediaUrls.length);
+                if (currentImagesCount > 0 && !hasVideo) {
+                    toast.warning("YouTube only supports videos (MP4, MOV, WebM). Please remove attached images before publishing to YouTube.");
                 }
             }
             return updated;
@@ -461,6 +560,39 @@ const Scheduler = () => {
             }
         }
 
+        if (isYouTubeSelected) {
+            if (!hasVideo) {
+                toast.error("YouTube requires a video file. Please attach a video.");
+                return;
+            }
+            if (totalImagesCount > 0) {
+                toast.error("YouTube does not support images. Please remove all images before scheduling.");
+                return;
+            }
+            const totalVideoCount = (mediaFiles.filter((f) => f.type.startsWith("video/")).length) +
+                (existingMediaUrls.filter((u) => /\.(mp4|webm|mov|mkv|ogg)$/i.test(u) || u.includes("/video/upload/")).length);
+            if (totalVideoCount > 1) {
+                toast.error("YouTube allows a maximum of 1 video per post.");
+                return;
+            }
+            if (!youtubeTitle.trim()) {
+                toast.error("YouTube video title is required.");
+                return;
+            }
+            if (youtubeTitle.trim().length > 100) {
+                toast.error(`YouTube video title exceeds 100 characters (Current: ${youtubeTitle.trim().length}/100).`);
+                return;
+            }
+            if (content.length > 5000) {
+                toast.error(`YouTube description exceeds 5,000 characters (Current: ${content.length}/5,000).`);
+                return;
+            }
+            if (youtubeFirstComment.trim().length > 10000) {
+                toast.error("YouTube first comment cannot exceed 10,000 characters.");
+                return;
+            }
+        }
+
         const scheduledFor = new Date(`${scheduledDate}T${scheduledTime}:00`).toISOString();
         const formData = new FormData();
         formData.append("content", content);
@@ -555,6 +687,27 @@ const Scheduler = () => {
             platformSpecificData.instagram = igData;
         }
 
+        if (isYouTubeSelected) {
+            const ytData: Record<string, any> = {
+                title: youtubeTitle.trim(),
+                visibility: youtubeVisibility,
+                categoryId: youtubeCategoryId,
+                madeForKids: youtubeMadeForKids,
+                containsSyntheticMedia: youtubeContainsSyntheticMedia,
+                isShort: youtubeIsShort,
+            };
+            if (youtubePlaylistId) {
+                ytData.playlistId = youtubePlaylistId;
+            }
+            if (youtubeFirstComment.trim()) {
+                ytData.firstComment = youtubeFirstComment.trim();
+            }
+            if (youtubeCustomThumbnail.trim() && !youtubeIsShort) {
+                ytData.thumbnail = youtubeCustomThumbnail.trim();
+            }
+            platformSpecificData.youtube = ytData;
+        }
+
         if (Object.keys(platformSpecificData).length > 0) {
             formData.append("platformSpecificData", JSON.stringify(platformSpecificData));
         }
@@ -602,6 +755,15 @@ const Scheduler = () => {
             setInstagramPaidPartnership(false);
             setInstagramSponsors("");
             setInstagramCommentsEnabled(true);
+            setYoutubeTitle("");
+            setYoutubeVisibility("public");
+            setYoutubeCategoryId("22");
+            setYoutubeMadeForKids(false);
+            setYoutubeContainsSyntheticMedia(false);
+            setYoutubePlaylistId("");
+            setYoutubeFirstComment("");
+            setYoutubeCustomThumbnail("");
+            setYoutubeIsShort(false);
             fetchPosts();
         } catch (error: any) {
             toast.error(error?.response?.data?.message || error?.message || "Failed to schedule post");
@@ -710,6 +872,28 @@ const Scheduler = () => {
                         isInstagramViaFacebook={isInstagramViaFacebook}
                         isInstagramCollapsed={isInstagramCollapsed}
                         onToggleInstagramCollapse={() => setIsInstagramCollapsed((prev) => !prev)}
+                        youtubeTitle={youtubeTitle}
+                        onYoutubeTitleChange={setYoutubeTitle}
+                        youtubeVisibility={youtubeVisibility}
+                        onYoutubeVisibilityChange={setYoutubeVisibility}
+                        youtubeCategoryId={youtubeCategoryId}
+                        onYoutubeCategoryIdChange={setYoutubeCategoryId}
+                        youtubeMadeForKids={youtubeMadeForKids}
+                        onYoutubeMadeForKidsChange={setYoutubeMadeForKids}
+                        youtubeContainsSyntheticMedia={youtubeContainsSyntheticMedia}
+                        onYoutubeContainsSyntheticMediaChange={setYoutubeContainsSyntheticMedia}
+                        youtubePlaylistId={youtubePlaylistId}
+                        onYoutubePlaylistIdChange={setYoutubePlaylistId}
+                        youtubePlaylists={youtubePlaylists}
+                        isLoadingPlaylists={loadingPlaylists}
+                        onRefreshPlaylists={fetchYoutubePlaylists}
+                        youtubeFirstComment={youtubeFirstComment}
+                        onYoutubeFirstCommentChange={setYoutubeFirstComment}
+                        youtubeCustomThumbnail={youtubeCustomThumbnail}
+                        onYoutubeCustomThumbnailChange={setYoutubeCustomThumbnail}
+                        youtubeIsShort={youtubeIsShort}
+                        isYoutubeCollapsed={isYoutubeCollapsed}
+                        onToggleYoutubeCollapse={() => setIsYoutubeCollapsed((prev) => !prev)}
                         onSubmit={handleSchedule}
                         loading={loading}
                     />
@@ -743,6 +927,13 @@ const Scheduler = () => {
                             instagramMuteAudio={instagramMuteAudio}
                             instagramTrial={instagramTrial}
                             instagramCommentsEnabled={instagramCommentsEnabled}
+                            youtubeTitle={youtubeTitle}
+                            youtubeVisibility={youtubeVisibility}
+                            youtubeIsShort={youtubeIsShort}
+                            youtubeFirstComment={youtubeFirstComment}
+                            youtubeCustomThumbnail={youtubeCustomThumbnail}
+                            youtubeMadeForKids={youtubeMadeForKids}
+                            youtubeContainsSyntheticMedia={youtubeContainsSyntheticMedia}
                         />
                     )}
                 </div>
@@ -759,6 +950,7 @@ const Scheduler = () => {
                     deletingId={deletingId}
                     onViewAnalytics={handleViewAnalytics}
                     onReEdit={handleReEditFailedPost}
+                    onEditYoutubeDescription={(post) => setEditingYoutubePost(post)}
                     formatRelativeSchedule={formatRelativeSchedule}
                     onCreatePostClick={() => setActiveTab("create")}
                 />
@@ -793,7 +985,8 @@ const Scheduler = () => {
                     isTwitterSelected,
                     isFacebookSelected,
                     isInstagramSelected,
-                    isLinkedInSelected
+                    isLinkedInSelected,
+                    isYouTubeSelected
                 )}
                 onClearAll={handleClearAllMedia}
             />
@@ -815,6 +1008,19 @@ const Scheduler = () => {
                 onClose={() => {
                     setAnalyticsModalPost(null);
                     setAnalyticsData(null);
+                }}
+            />
+
+            {/* YouTube Description Edit Modal */}
+            <EditYoutubeDescriptionModal
+                isOpen={Boolean(editingYoutubePost)}
+                post={editingYoutubePost}
+                onClose={() => setEditingYoutubePost(null)}
+                onSuccess={(updatedPostId, newContent) => {
+                    setPosts((prev) =>
+                        prev.map((p) => (p._id === updatedPostId ? { ...p, content: newContent } : p))
+                    );
+                    setEditingYoutubePost(null);
                 }}
             />
         </div>

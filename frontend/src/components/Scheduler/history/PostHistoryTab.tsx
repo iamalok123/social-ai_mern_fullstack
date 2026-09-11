@@ -13,6 +13,7 @@ interface PostHistoryTabProps {
     deletingId: string | null;
     onViewAnalytics: (postId: string) => void;
     onReEdit: (post: Post) => void;
+    onEditYoutubeDescription?: (post: Post) => void;
     formatRelativeSchedule: (dateString: string) => string;
     onCreatePostClick: () => void;
 }
@@ -26,6 +27,7 @@ export const PostHistoryTab: React.FC<PostHistoryTabProps> = ({
     deletingId,
     onViewAnalytics,
     onReEdit,
+    onEditYoutubeDescription,
     formatRelativeSchedule,
     onCreatePostClick,
 }) => {
@@ -150,6 +152,7 @@ export const PostHistoryTab: React.FC<PostHistoryTabProps> = ({
                     onPreviewMedia={onPreviewMedia}
                     onDeleteUpcoming={onDeleteUpcoming}
                     deletingId={deletingId}
+                    onEditYoutubeDescription={onEditYoutubeDescription}
                     formatRelativeSchedule={formatRelativeSchedule}
                     onCreatePostClick={onCreatePostClick}
                 />
@@ -165,6 +168,7 @@ export const PostHistoryTab: React.FC<PostHistoryTabProps> = ({
                     deletingId={deletingId}
                     onViewAnalytics={onViewAnalytics}
                     onReEdit={onReEdit}
+                    onEditYoutubeDescription={onEditYoutubeDescription}
                     formatRelativeSchedule={formatRelativeSchedule}
                 />
             )}

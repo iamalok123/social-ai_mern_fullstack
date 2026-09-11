@@ -13,6 +13,7 @@ interface PostHistorySingleColumnProps {
     deletingId: string | null;
     onViewAnalytics: (postId: string) => void;
     onReEdit: (post: Post) => void;
+    onEditYoutubeDescription?: (post: Post) => void;
     formatRelativeSchedule: (dateString: string) => string;
 }
 
@@ -26,6 +27,7 @@ export const PostHistorySingleColumn: React.FC<PostHistorySingleColumnProps> = (
     deletingId,
     onViewAnalytics,
     onReEdit,
+    onEditYoutubeDescription,
     formatRelativeSchedule,
 }) => {
     return (
@@ -60,6 +62,7 @@ export const PostHistorySingleColumn: React.FC<PostHistorySingleColumnProps> = (
                             deletingId={deletingId}
                             onViewAnalytics={filter === "published" ? onViewAnalytics : undefined}
                             onReEdit={filter === "failed" ? onReEdit : undefined}
+                            onEditYoutubeDescription={onEditYoutubeDescription}
                             formatRelativeSchedule={formatRelativeSchedule}
                         />
                     ))

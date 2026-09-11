@@ -9,12 +9,14 @@ import { twitterAdapter } from "./platforms/twitter/twitterService.js";
 import { linkedinAdapter } from "./platforms/linkedin/linkedinService.js";
 import { instagramAdapter } from "./platforms/instagram/instagramService.js";
 import { facebookAdapter } from "./platforms/facebook/facebookService.js";
+import { youtubeAdapter } from "./platforms/youtube/youtubeService.js";
 
-// Auto-register all 4 core platform adapters
+// Auto-register all 5 platform adapters
 registerPlatformAdapter(twitterAdapter);
 registerPlatformAdapter(linkedinAdapter);
 registerPlatformAdapter(instagramAdapter);
 registerPlatformAdapter(facebookAdapter);
+registerPlatformAdapter(youtubeAdapter);
 
 // Export core functional registry and publisher
 export {
@@ -37,3 +39,6 @@ export * from "./platforms/instagram/instagramService.js";
 export * from "./platforms/instagram/instagramController.js";
 export * from "./platforms/facebook/facebookService.js";
 export * from "./platforms/facebook/facebookController.js";
+export * from "./platforms/youtube/youtubeService.js";
+export * from "./platforms/youtube/youtubeController.js";
+export * from "./platforms/youtube/youtubeTypes.js";

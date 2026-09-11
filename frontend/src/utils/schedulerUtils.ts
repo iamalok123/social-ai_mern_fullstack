@@ -35,8 +35,12 @@ export const getMediaUploaderHint = (
     isTwitterSelected: boolean,
     isFacebookSelected: boolean,
     isInstagramSelected: boolean,
-    isLinkedInSelected: boolean
+    isLinkedInSelected: boolean,
+    isYouTubeSelected?: boolean
 ): string => {
+    if (isYouTubeSelected) {
+        return "YouTube requires exactly 1 video (MP4, MOV, WebM, etc. - no images allowed)";
+    }
     if (isTwitterSelected) {
         return selectedPlatforms.length > 1
             ? "Twitter/X limit applies: up to 4 images (or 1 video)"
@@ -63,8 +67,10 @@ export const getActivePlatformDisplayName = (
     isTwitterSelected: boolean,
     isFacebookSelected: boolean,
     isInstagramSelected: boolean,
-    isLinkedInSelected: boolean
+    isLinkedInSelected: boolean,
+    isYouTubeSelected?: boolean
 ): string => {
+    if (isYouTubeSelected) return "YouTube";
     if (isTwitterSelected) return "Twitter/X";
     if (isFacebookSelected) return "Facebook";
     if (isInstagramSelected) return "Instagram";

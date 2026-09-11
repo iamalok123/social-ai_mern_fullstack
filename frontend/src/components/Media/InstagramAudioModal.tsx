@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { XIcon, MusicIcon, SearchIcon, PlayIcon, PauseIcon, CheckIcon, Volume2Icon, SparklesIcon, Loader2Icon } from "lucide-react";
 import { api, API_PATHS } from "../../api/axios";
 import { toast } from "sonner";
@@ -36,6 +36,22 @@ export const InstagramAudioModal: React.FC<InstagramAudioModalProps> = ({
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
+    const fetchAudioTracks = useCallback(async (q: string) => {
+        setLoading(true);
+        try {
+            const { data } = await api.get(API_PATHS.ACCOUNTS.INSTAGRAM_AUDIO_SEARCH(q, accountId));
+            const results = data?.data || data?.results || (Array.isArray(data) ? data : []);
+            setTracks(results);
+        } catch (error: any) {
+            // If backend returns account requirement message
+            const msg = error.response?.data?.message || "Failed to search Instagram audio catalog";
+            toast.error(msg);
+            setTracks([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [accountId]);
+
     // Initial search or preselect current track
     useEffect(() => {
         if (isOpen) {
@@ -56,23 +72,7 @@ export const InstagramAudioModal: React.FC<InstagramAudioModalProps> = ({
             }
             setPlayingTrackId(null);
         }
-    }, [isOpen]);
-
-    const fetchAudioTracks = async (q: string) => {
-        setLoading(true);
-        try {
-            const { data } = await api.get(API_PATHS.ACCOUNTS.INSTAGRAM_AUDIO_SEARCH(q, accountId));
-            const results = data?.data || data?.results || (Array.isArray(data) ? data : []);
-            setTracks(results);
-        } catch (error: any) {
-            // If backend returns account requirement message
-            const msg = error.response?.data?.message || "Failed to search Instagram audio catalog";
-            toast.error(msg);
-            setTracks([]);
-        } finally {
-            setLoading(false);
-        }
-    };
+    }, [isOpen, currentAudioConfig, fetchAudioTracks, searchQuery]);
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
