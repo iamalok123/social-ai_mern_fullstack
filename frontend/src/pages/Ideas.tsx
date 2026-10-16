@@ -57,8 +57,10 @@ export default function Ideas() {
                         }))
                     );
                 }
-            } catch (e) {
-                console.warn("Backend ideas fetch failed, keeping local state", e);
+            } catch (e: any) {
+                if (e?.response?.status !== 401) {
+                    console.warn("Backend ideas fetch failed, keeping local state", e);
+                }
             }
         };
 

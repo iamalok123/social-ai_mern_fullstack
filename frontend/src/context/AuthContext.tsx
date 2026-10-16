@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { api } from "../api/axios";
+import { isTokenExpired } from "../utils/authUtils.js";
 
 export interface User {
     id?: string;
@@ -29,14 +30,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const storedUser = localStorage.getItem("user");
         const storedToken = localStorage.getItem("token");
 
-        if (storedUser && storedToken) {
-            setUser(JSON.parse(storedUser))
-            setToken(storedToken)
-            api.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
+        if (storedUser && storedToken && !isTokenExpired(storedToken)) {
+            try {
+                setUser(JSON.parse(storedUser));
+                setToken(storedToken);
+                api.defaults.headers.common["Authorization"] = `Bearer ${storedToken}`;
+            } catch {
+                localStorage.removeItem("user");
+                localStorage.removeItem("token");
+                setUser(null);
+                setToken(null);
+            }
+        } else if (storedToken && isTokenExpired(storedToken)) {
+            // Proactively clean up expired token from storage
+            localStorage.removeItem("user");
+            localStorage.removeItem("token");
+            delete api.defaults.headers.common["Authorization"];
+            setUser(null);
+            setToken(null);
         }
 
-        setIsLoading(false)
-    }, [])
+        setIsLoading(false);
+
+        const handleSessionExpired = () => {
+            setUser(null);
+            setToken(null);
+            delete api.defaults.headers.common["Authorization"];
+        };
+
+        const handleStorageChange = (e: StorageEvent) => {
+            if (e.key === "token" && !e.newValue) {
+                handleSessionExpired();
+            }
+        };
+
+        window.addEventListener("auth:session-expired", handleSessionExpired);
+        window.addEventListener("storage", handleStorageChange);
+
+        return () => {
+            window.removeEventListener("auth:session-expired", handleSessionExpired);
+            window.removeEventListener("storage", handleStorageChange);
+        };
+    }, []);
 
 
     const login = (userData: User, newToken: string) => {

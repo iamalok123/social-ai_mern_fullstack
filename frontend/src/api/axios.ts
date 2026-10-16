@@ -1,4 +1,5 @@
 import axios from "axios";
+import { toast } from "sonner";
 
 export const BASE_URL = import.meta.env.VITE_BACKEND_URL || import.meta.env.BACKEND_URL || "http://localhost:3000";
 
@@ -66,3 +67,43 @@ api.interceptors.request.use((config) => {
     }
     return config;
 });
+
+// Response interceptor to handle expired sessions and 401s centrally
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        const status = error?.response?.status;
+        const url = error?.config?.url || "";
+
+        // Skip interceptor redirect for normal login/register attempt credential failures
+        const isAuthAttempt = url.includes("/api/auth/login") || url.includes("/api/auth/register");
+
+        if (status === 401 && !isAuthAttempt) {
+            // Clean up stored session
+            localStorage.removeItem("token");
+            localStorage.removeItem("user");
+            delete api.defaults.headers.common["Authorization"];
+
+            // Notify application context
+            if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("auth:session-expired"));
+
+                // Show only a single deduplicated toast across all concurrent 401 responses
+                toast.error("Your session has expired. Please sign in again.", {
+                    id: "auth-session-expired",
+                });
+
+                // Redirect user to login page if on a protected route
+                if (window.location.pathname !== "/login" && window.location.pathname !== "/") {
+                    setTimeout(() => {
+                        if (window.location.pathname !== "/login" && window.location.pathname !== "/") {
+                            window.location.href = "/login";
+                        }
+                    }, 150);
+                }
+            }
+        }
+
+        return Promise.reject(error);
+    }
+);

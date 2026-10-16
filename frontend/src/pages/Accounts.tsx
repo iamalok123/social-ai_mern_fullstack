@@ -29,7 +29,9 @@ const Accounts = () => {
             const { data } = await api.get(API_PATHS.ACCOUNTS.GET_ALL);
             setAccounts(data);
         } catch (error: any) {
-            toast.error(error.response?.data?.message || "Failed to fetch accounts");
+            if (error?.response?.status !== 401) {
+                toast.error(error.response?.data?.message || "Failed to fetch accounts");
+            }
         } finally {
             setConnecting(null);
             setIsSyncing(false);

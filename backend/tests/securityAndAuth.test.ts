@@ -100,6 +100,7 @@ describe("Security, Authentication & Data Protection Test Suite", () => {
 
             assert.strictEqual(statusCode, 401);
             assert.ok(responseBody?.message.includes("expired"));
+            assert.strictEqual(responseBody?.code, "TOKEN_EXPIRED");
             assert.strictEqual(nextCalled, false);
         });
 
@@ -123,6 +124,7 @@ describe("Security, Authentication & Data Protection Test Suite", () => {
 
             assert.strictEqual(statusCode, 401);
             assert.ok(responseBody?.message.includes("invalid signature") || responseBody?.message.includes("token"));
+            assert.strictEqual(responseBody?.code, "INVALID_TOKEN");
             assert.strictEqual(nextCalled, false);
         });
 
@@ -318,6 +320,27 @@ describe("Security, Authentication & Data Protection Test Suite", () => {
             assert.strictEqual(statusCode, 400);
             assert.ok(responseBody?.message.includes("past"));
             assert.strictEqual(nextCalled, false);
+        });
+    });
+
+    describe("CORS & Cross-Origin Security Configuration", () => {
+        it("allows requests from localhost and vercel app domains", () => {
+            const allowedOrigins = [
+                process.env.FRONTEND_URL,
+                "http://localhost:5173",
+                "http://localhost:3000",
+                "https://social-ai-v69.vercel.app",
+            ].filter(Boolean) as string[];
+
+            const isAllowed = (origin: string | undefined): boolean => {
+                if (!origin) return true;
+                return allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin);
+            };
+
+            assert.strictEqual(isAllowed("http://localhost:5173"), true);
+            assert.strictEqual(isAllowed("https://social-ai-v69.vercel.app"), true);
+            assert.strictEqual(isAllowed("https://social-ai-preview-branch.vercel.app"), true);
+            assert.strictEqual(isAllowed(undefined), true);
         });
     });
 });

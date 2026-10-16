@@ -1,6 +1,6 @@
 # 🚀 SocialAI Studio — Multi-Platform AI Social Scheduler
 
-[![Tests](https://img.shields.io/badge/Tests-146%20Passing-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/Tests-153%20Passing-brightgreen.svg)]()
 [![React](https://img.shields.io/badge/React-19-61dafb.svg)](https://react.dev/)
 [![Express](https://img.shields.io/badge/Express-5-lightgrey.svg)](https://expressjs.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7+-blue.svg)](https://www.typescriptlang.org/)

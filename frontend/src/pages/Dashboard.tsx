@@ -43,7 +43,9 @@ const Dashboard = () => {
                 })
                 setActivities(activityRes.data)
             } catch (error: any) {
-                console.error("Error fetching dashboard data", error);
+                if (error?.response?.status !== 401) {
+                    console.error("Error fetching dashboard data", error);
+                }
             }
         };
         fetchDashboardData();

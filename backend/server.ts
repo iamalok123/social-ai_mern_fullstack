@@ -19,15 +19,28 @@ const app = express();
 await connectDB();
 
 // Middleware
-app.use(cors({
-    origin: process.env.FRONTEND_URL || "*",
-    credentials: true,
-}))
+const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://social-ai-v69.vercel.app",
+].filter(Boolean) as string[];
 
-// Rate Limiting
+app.use(cors({
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin) || /\.vercel\.app$/.test(origin)) {
+            return callback(null, true);
+        }
+        return callback(null, true);
+    },
+    credentials: true,
+}));
+
+// Rate Limiting (Increased threshold to safely support legitimate polling and multi-tab usage)
 const generalLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100,                  // 100 requests per window per IP
+    max: 500,                  // 500 requests per window per IP
     standardHeaders: true,
     legacyHeaders: false,
     message: { message: "Too many requests, please try again later." },

@@ -21,7 +21,14 @@ export const protect = async (req: AuthRequest, res: Response, next: NextFunctio
             next();
             return;
         } catch (error: any) {
-            res.status(401).json({ message: error?.message || "Not authorized, token failed" });
+            const isExpired = error?.name === "TokenExpiredError" || error?.message?.includes("expired");
+            const message = isExpired
+                ? "Your session has expired. Please log in again."
+                : (error?.message || "Not authorized, token failed");
+            res.status(401).json({
+                message,
+                code: isExpired ? "TOKEN_EXPIRED" : "INVALID_TOKEN"
+            });
             return;
         }
     } else {

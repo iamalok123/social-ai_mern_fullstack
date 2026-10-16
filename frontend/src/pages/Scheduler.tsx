@@ -122,15 +122,21 @@ const Scheduler = () => {
 
     // Fetch accounts to proactively check for disconnected/expired tokens
     useEffect(() => {
+        let isMounted = true;
         const fetchAccounts = async () => {
             try {
                 const { data } = await api.get(API_PATHS.ACCOUNTS.GET_ALL);
-                setConnectedAccounts(data);
-            } catch (e) {
-                console.warn("Could not fetch accounts for status checks", e);
+                if (isMounted) setConnectedAccounts(data);
+            } catch (e: any) {
+                if (e?.response?.status !== 401) {
+                    console.warn("Could not fetch accounts for status checks", e);
+                }
             }
         };
         fetchAccounts();
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     // Manage blob object URLs lifecycle cleanly
@@ -246,19 +252,39 @@ const Scheduler = () => {
         }
     }, [location.state]);
 
-    const fetchPosts = async () => {
+    const fetchPosts = async (isBackground = false) => {
+        if (isBackground && typeof document !== "undefined" && document.visibilityState !== "visible") {
+            return;
+        }
+
         try {
             const { data } = await api.get(API_PATHS.POSTS.GET_ALL);
             setPosts(data);
         } catch (error: any) {
-            toast.error(error?.response?.data?.message || error.message);
+            if (error?.response?.status === 401) {
+                return;
+            }
+            if (!isBackground) {
+                toast.error(error?.response?.data?.message || error.message || "Failed to fetch posts");
+            }
         }
     };
 
     useEffect(() => {
-        (async () => await fetchPosts())();
-        const interval = setInterval(async () => await fetchPosts(), 10000);
-        return () => clearInterval(interval);
+        let interval: ReturnType<typeof setInterval> | null = null;
+        (async () => await fetchPosts(false))();
+
+        interval = setInterval(async () => {
+            if (!localStorage.getItem("token")) {
+                if (interval) clearInterval(interval);
+                return;
+            }
+            await fetchPosts(true);
+        }, 20000);
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
     }, []);
 
     const [deletingId, setDeletingId] = useState<string | null>(null);
